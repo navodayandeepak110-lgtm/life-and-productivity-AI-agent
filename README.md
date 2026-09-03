@@ -66,8 +66,6 @@ cp .env.example .env
   ```bash
   python telegram_bot.py
 
-
-  "My project is an **Autonomous AI Life & Productivity Agent** built with a modular, multi-tiered architecture. Unlike basic AI chatbots that have no long-term memory, my agent acts as a persistent personal assistant. It is powered by Large Language Models via **OmniRoute** and features an independent **Memory Engine** that permanently stores goals, deadlines, tasks, habits, and notes on disk.*
 >
 > 
 
