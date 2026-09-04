@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepak-ai-agent"
+version = "0.1.0"
+description = "Autonomous, long-term memory AI Life & Productivity Agent via CLI & Telegram"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Deepak" }]
+dependencies = [
+    "anthropic>=0.18.0",
+    "python-dotenv>=1.0.0",
+    "python-telegram-bot>=21.0",
+    "dateparser>=1.2.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "google-api-python-client>=2.100.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+    "black>=24.0.0"
+]
