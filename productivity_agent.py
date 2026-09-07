@@ -1518,3 +1518,495 @@ def execute_cli_command(agent: ProductivityAgent, user_input: str) -> Any:
 
     # --- [19] LOG HABIT COMPLETED ---
     if first_token in ['19', '/19', '/log', '/log-habit', 'log', 'log-habit']:            
+        if not arg_str:
+            arg_str = input("👉 Enter habit ID(s) to log as completed (e.g. 1 or 1,2): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        ids = agent.memory._parse_id_list(arg_str)
+        if ids:
+            print("\n" + agent.memory.quick_bulk_log_habits(ids, completed=True) + "\n")
+        else:
+            print("\n⚠️ Usage: 19 <id|id1,id2...> (e.g. 19 1 or /log 1,2)\n")
+        return True
+
+    # --- [20] UNLOG / RESET HABIT ---
+    if first_token in ['20', '/20', '/unlog', '/unlog-habit', 'unlog', 'unlog-habit']:
+        if not arg_str:
+            arg_str = input("👉 Enter habit ID(s) to unlog/reset (e.g. 1 or 1,2): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        ids = agent.memory._parse_id_list(arg_str)
+        if ids:
+            print("\n" + agent.memory.quick_bulk_log_habits(ids, completed=False) + "\n")
+        else:
+            print("\n⚠️ Usage: 20 <id|id1,id2...> (e.g. 20 1 or /unlog 1)\n")
+        return True
+
+    # --- [21] ADD HABIT ---
+    if first_token in ['21', '/21', '/add-habit', 'add-habit']:
+        if not arg_str:
+            arg_str = input("👉 Enter habit name (e.g. DSA 2h daily): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        print("\n" + agent.memory.quick_add_habit(arg_str) + "\n")
+        return True
+
+    # --- [22] DELETE HABIT ---
+    if first_token in ['22', '/22', '/del-habit', 'del-habit']:
+        if not arg_str:
+            arg_str = input("👉 Enter habit ID to delete (e.g. 3): ").strip()
+        if not arg_str or not arg_str.split()[0].isdigit():
+            print("\n⚠️ Usage: 22 <habit_id> (e.g. 22 3 or /del-habit 3)\n")
+            return True
+        habit_id = int(arg_str.split()[0])
+        print("\n" + agent.memory.quick_delete_habit(habit_id) + "\n")
+        return True
+
+    # --- [23] VIEW GOALS ---
+    if first_token in ['23', '/23', '/goals', 'goals']:
+        print("\n" + agent.memory.get_goals_formatted() + "\n")
+        return True
+
+    # --- [24] ADD GOAL ---
+    if first_token in ['24', '/24', '/add-goal', '/goal', 'add-goal', 'goal']:
+        if not arg_str:
+            arg_str = input("👉 Enter goal title (e.g. GATE 2028): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        goal = agent.memory.add_goal(title=arg_str, description=arg_str)
+        print(f"\n✅ Goal #{goal['id']} '{goal['title']}' added! Use AI chat to set milestones.\n")
+        return True
+
+    # --- [25] COMPLETE GOAL ---
+    if first_token in ['25', '/25', '/complete-goal', 'complete-goal']:
+        if not arg_str:
+            arg_str = input("👉 Enter goal ID to mark complete (e.g. 1): ").strip()
+        if not arg_str or not arg_str.split()[0].isdigit():
+            print("\n⚠️ Usage: 25 <goal_id> (e.g. 25 1 or /complete-goal 1)\n")
+            return True
+        goal_id = int(arg_str.split()[0])
+        print("\n" + agent.memory.quick_complete_goal(goal_id) + "\n")
+        return True
+
+    # --- [26] DELETE GOAL ---
+    if first_token in ['26', '/26', '/del-goal', 'del-goal']:
+        if not arg_str:
+            arg_str = input("👉 Enter goal ID to delete (e.g. 2): ").strip()
+        if not arg_str or not arg_str.split()[0].isdigit():
+            print("\n⚠️ Usage: 26 <goal_id> (e.g. 26 2 or /del-goal 2)\n")
+            return True
+        goal_id = int(arg_str.split()[0])
+        print("\n" + agent.memory.quick_delete_goal(goal_id) + "\n")
+        return True
+
+    # --- [27] VIEW PROJECTS ---
+    if first_token in ['27', '/27', '/projects', '/proj', 'projects', 'proj']:
+        print("\n" + agent.memory.get_projects_formatted() + "\n")
+        return True
+
+    # --- [28] ADD PROJECT ---
+    if first_token in ['28', '/28', '/add-project', '/add-proj', 'add-project', 'add-proj']:
+        if not arg_str:
+            arg_str = input("👉 Enter project name (e.g. Backend API): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        print("\n" + agent.memory.quick_add_project(arg_str) + "\n")
+        return True
+
+    # --- [29] VIEW NOTES ---
+    if first_token in ['29', '/29', '/notes', 'notes']:
+        print("\n" + agent.memory.get_notes_formatted() + "\n")
+        return True
+
+    # --- [30] ADD NOTE ---
+    if first_token in ['30', '/30', '/add-note', '/note', 'add-note', 'note']:
+        if not arg_str:
+            arg_str = input("👉 Enter note as Title|Content (e.g. DSA|Trees tip): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        if "|" in arg_str:
+            title, content = arg_str.split("|", 1)
+            print("\n" + agent.memory.quick_add_note(title.strip(), content.strip()) + "\n")
+        else:
+            print("\n" + agent.memory.quick_add_note(arg_str[:40], arg_str) + "\n")
+        return True
+
+    # --- [31] DELETE NOTE ---
+    if first_token in ['31', '/31', '/del-note', 'del-note']:
+        if not arg_str:
+            arg_str = input("👉 Enter note ID to delete (e.g. 4): ").strip()
+        if not arg_str or not arg_str.split()[0].isdigit():
+            print("\n⚠️ Usage: 31 <note_id> (e.g. 31 4 or /del-note 4)\n")
+            return True
+        note_id = int(arg_str.split()[0])
+        print("\n" + agent.memory.quick_delete_note(note_id) + "\n")
+        return True
+
+    # --- [32] ATTACH FILE ---
+    if first_token in ['32', '/32', '/attach', 'attach']:
+        if not arg_str:
+            arg_str = input("👉 Enter file path to attach [and optional description]: ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        if " " in arg_str:
+            filepath, desc = arg_str.split(maxsplit=1)
+        else:
+            filepath, desc = arg_str, ""
+        try:
+            record = agent.memory.add_attachment(filepath, Path(filepath).name, description=desc)
+            print(f"\n📎 File attached successfully! [ID #{record['id']}] '{record['original_name']}' ({record['file_size']/1024:.1f} KB)\n")
+        except Exception as e:
+            print(f"\n❌ Failed to attach file: {e}\n")
+        return True
+
+    # --- [33] VIEW ATTACHMENTS LIST ---
+    if first_token in ['33', '/33', '/attachments', '/attach-list', 'attachments', 'attach-list']:
+        print("\n" + agent.memory.get_attachments_formatted() + "\n")
+        return True
+
+    # --- [34] VIEW ATTACHMENT DETAILS ---
+    if first_token in ['34', '/34', '/view-attach', 'view-attach']:
+        if not arg_str:
+            arg_str = input("👉 Enter attachment ID to view (e.g. 1): ").strip()
+        if not arg_str or not arg_str.split()[0].isdigit():
+            print("\n⚠️ Usage: 34 <id> (e.g. 34 1 or /view-attach 1)\n")
+            return True
+        att_id = int(arg_str.split()[0])
+        att = agent.memory.get_attachment(att_id)
+        if att:
+            print(f"\n📎 Attachment #{att['id']} Details:")
+            print(json.dumps(att, indent=2) + "\n")
+        else:
+            print(f"\n❌ Attachment #{att_id} not found.\n")
+        return True
+
+    # --- [35] DELETE ATTACHMENT ---
+    if first_token in ['35', '/35', '/del-attach', 'del-attach']:
+        if not arg_str:
+            arg_str = input("👉 Enter attachment ID to delete (e.g. 1): ").strip()
+        if not arg_str or not arg_str.split()[0].isdigit():
+            print("\n⚠️ Usage: 35 <id> (e.g. 35 1 or /del-attach 1)\n")
+            return True
+        att_id = int(arg_str.split()[0])
+        ok = agent.memory.delete_attachment(att_id)
+        print(f"\n🗑️ Attachment #{att_id} deleted.\n" if ok else f"\n❌ Attachment #{att_id} not found.\n")
+        return True
+
+    # --- [36] DAILY STUDY REVIEW ---
+    if first_token in ['36', '/36', '/review', 'review']:
+        if not arg_str:
+            arg_str = input("👉 Enter daily study review summary: ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        agent.memory.add_journal_entry(summary=arg_str)
+        print(f"\n📝 Daily review recorded for today: '{arg_str}'\n")
+        return True
+
+    # --- [37] UNDO OPERATION ---
+    if first_token in ['37', '/37', '/undo', 'undo']:
+        print("\n" + agent.memory.undo() + "\n")
+        return True
+
+    # --- [38] EXPORT BACKUP ---
+    if first_token in ['38', '/38', '/export', 'export']:
+        custom_dir = arg_str if arg_str else None
+        try:
+            export_path = agent.memory.export_backup(custom_dir)
+            print(f"\n💾 Complete JSON backup successfully created:\n   -> {export_path}\n")
+        except Exception as e:
+            print(f"\n❌ Export failed: {e}\n")
+        return True
+
+    # --- [39] FULL MEMORY / PROFILE ---
+    if first_token in ['39', '/39', '/memory', '/profile', 'memory', 'profile']:
+        print("\n" + agent.memory.get_user_data_summary() + "\n")
+        return True
+
+    # --- [40] SEARCH ALL MEMORY ---
+    if first_token in ['40', '/40', '/search', 'search']:
+        if not arg_str:
+            arg_str = input("👉 Enter search keyword: ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        results = agent.memory.search_all_memory(arg_str)
+        print(f"\nSearch results for '{arg_str}':")
+        print(json.dumps(results, indent=2))
+        print()
+        return True
+
+    # --- [41] CONVERSATION HISTORY ---
+    if first_token in ['41', '/41', '/history', 'history']:
+        print(f"\nRecent Conversation Turns ({len(agent.conversation_history)} messages):")
+        for msg in agent.conversation_history[-6:]:
+            role = msg.get("role", "unknown").upper()
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                print(f"[{role}]: {content[:150]}...")
+        print()
+        return True
+
+    # --- [42] START FRESH SESSION ---
+    if first_token in ['42', '/42', '/new', 'new']:
+        new_session = agent.memory.start_new_session()
+        agent.conversation_history = []
+        print(f"\n✓ Started fresh conversation session: {new_session}\n")
+        return True
+
+    # --- [44] PRODUCTIVITY INTELLIGENCE REPORT ---
+    if first_token in ['44', '/44', '/report', '/analytics', 'report', 'analytics']:
+        period = "monthly" if "month" in arg_str.lower() else "weekly"
+        print("\n" + agent.memory.get_analytics_report_formatted(period=period) + "\n")
+        return True
+
+    # --- [45] WEEKLY PRODUCTIVITY REPORT ---
+    if first_token in ['45', '/45', '/weekly', 'weekly']:
+        print("\n" + agent.memory.get_analytics_report_formatted(period="weekly") + "\n")
+        return True
+
+    # --- [46] MONTHLY PRODUCTIVITY REPORT ---
+    if first_token in ['46', '/46', '/monthly', 'monthly']:
+        print("\n" + agent.memory.get_analytics_report_formatted(period="monthly") + "\n")
+        return True
+
+    # --- [47] SMART PROACTIVE NOTIFICATIONS & ALERTS ---
+    if first_token in ['47', '/47', '/notify', '/smart-alerts', 'notify', 'smart-alerts', 'alerts']:
+        print("\n" + agent.memory.get_proactive_notifications_formatted(force=True) + "\n")
+        return True
+
+    # --- [48] GOAL PROGRESS VISUALIZATIONS ---
+    if first_token in ['48', '/48', '/goals-progress', '/goal-progress', 'goals-progress', 'goal-progress']:
+        print("\n" + agent.memory.get_goal_progress_visualizations() + "\n")
+        return True
+
+    # --- [49] WEB SEARCH ---
+    if first_token in ['49', '/49', '/web', '/search-web', 'web', 'search-web']:
+        if not arg_str:
+            arg_str = input("👉 Enter search query: ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        if not WEB_TOOLS_AVAILABLE:
+            print("\n❌ Web tools not installed. Run: pip install requests beautifulsoup4\n")
+            return True
+        print(f"\n🌐 Searching: '{arg_str}'...\n")
+        result = web_search(arg_str, max_results=5)
+        print(format_search_results(result) + "\n")
+        return True
+
+    # --- [50] READ WEBPAGE ---
+    if first_token in ['50', '/50', '/read', '/read-web', 'read', 'read-web']:
+        if not arg_str:
+            arg_str = input("👉 Enter URL to read (e.g. https://example.com): ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        if not WEB_TOOLS_AVAILABLE:
+            print("\n❌ Web tools not installed. Run: pip install requests beautifulsoup4\n")
+            return True
+        print(f"\n🌐 Reading: {arg_str}...\n")
+        result = read_webpage(arg_str)
+        print(format_webpage_result(result) + "\n")
+        return True
+
+    # --- [51] VIEW INBOX ---
+    if first_token in ['51', '/51', '/inbox', 'inbox']:
+        unread_only = 'unread' in arg_str.lower()
+        count = 10
+        # Parse optional count from arg_str (e.g. "/inbox 20" or "/inbox unread 5")
+        for token in arg_str.split():
+            if token.isdigit():
+                count = int(token)
+                break
+        configured, msg = check_email_configured()
+        if not configured:
+            print(f"\n📧 Email not configured: {msg}")
+            print("   Add EMAIL_ADDRESS and EMAIL_APP_PASSWORD to your .env file.\n")
+            return True
+        print(f"\n📧 Loading {'unread ' if unread_only else ''}inbox ({count} emails)...\n")
+        result = list_emails(count=count, unread_only=unread_only)
+        print(format_email_list(result) + "\n")
+        return True
+
+    # --- [52] SEARCH EMAILS ---
+    if first_token in ['52', '/52', '/email-search', '/mail-search', 'email-search', 'mail-search']:
+        if not arg_str:
+            arg_str = input("👉 Enter search keyword: ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        configured, msg = check_email_configured()
+        if not configured:
+            print(f"\n📧 Email not configured: {msg}\n")
+            return True
+        print(f"\n📧 Searching emails for '{arg_str}'...\n")
+        result = search_emails(arg_str)
+        if result.get("error"):
+            print(f"❌ {result['error']}\n")
+        else:
+            emails = result.get("results", [])
+            if not emails:
+                print(f"📭 No emails found matching '{arg_str}'.\n")
+            else:
+                print(f"📧 Found {len(emails)} email(s):\n")
+                for e in emails:
+                    print(f"  [{e['id']}] {e.get('subject', '(no subject)')}")
+                    print(f"       From: {e.get('from', '')}  |  {e.get('date', '')}")
+                print()
+        return True
+
+    # --- [53] CREATE EMAIL DRAFT ---
+    if first_token in ['53', '/53', '/draft', '/email-draft', 'draft', 'email-draft']:
+        configured, msg = check_email_configured()
+        if not configured:
+            print(f"\n📧 Email not configured: {msg}\n")
+            return True
+        if arg_str and '|' in arg_str:
+            # Format: /draft to@email.com | Subject | Body
+            parts_d = [p.strip() for p in arg_str.split('|', 2)]
+            if len(parts_d) >= 3:
+                to_addr, subject, body = parts_d[0], parts_d[1], parts_d[2]
+            elif len(parts_d) == 2:
+                to_addr, subject = parts_d[0], parts_d[1]
+                body = input("👉 Enter email body: ").strip()
+            else:
+                to_addr = parts_d[0]
+                subject = input("👉 Subject: ").strip()
+                body = input("👉 Body: ").strip()
+        else:
+            to_addr = arg_str or input("👉 To (recipient email): ").strip()
+            subject = input("👉 Subject: ").strip()
+            body = input("👉 Body: ").strip()
+
+        if not to_addr:
+            print("⚠️ Operation cancelled (no recipient).\n")
+            return True
+
+        draft = create_draft(to=to_addr, subject=subject, body=body)
+        if draft.get("error"):
+            print(f"\n❌ {draft['error']}\n")
+            return True
+
+        print("\n" + draft.get("preview", "") + "\n")
+        confirm = input("Send this email? (yes/no): ").strip().lower()
+        if confirm in ("yes", "y"):
+            result = send_email(to=to_addr, subject=subject, body=body)
+            if result.get("success"):
+                print(f"\n{result['message']}\n")
+            else:
+                print(f"\n❌ Failed to send: {result.get('error', 'Unknown error')}\n")
+        else:
+            print("\n📧 Email draft saved — not sent.\n")
+        return True
+
+    # --- [54] TRACK YOUTUBE VIDEO PROGRESS ---
+    if first_token in ['54', '/54', '/yt-track', '/youtube-track', 'yt-track', 'youtube-track']:
+        if not arg_str:
+            arg_str = input("👉 Enter: <YouTube URL> <minutes watched> [total minutes]\n   e.g. https://youtu.be/abc 25 60\n> ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        tokens = arg_str.split()
+        url = tokens[0]
+        if len(tokens) < 2:
+            print("\n⚠️ Usage: 54 <url> <minutes_watched> [total_minutes]\n")
+            return True
+        try:
+            watched_min = float(tokens[1])
+            total_min = float(tokens[2]) if len(tokens) >= 3 else None
+        except ValueError:
+            print("\n⚠️ Minutes must be numbers. Usage: 54 <url> <minutes_watched> [total_minutes]\n")
+            return True
+        notes_input = input("📝 Add notes for this session (or press Enter to skip): ").strip()
+        result = track_video_progress(
+            url_or_id=url,
+            watched_seconds=int(watched_min * 60),
+            total_seconds=int(total_min * 60) if total_min else None,
+            notes=notes_input or None
+        )
+        if result.get("error"):
+            print(f"\n❌ {result['error']}\n")
+        else:
+            print("\n" + format_video_progress(result) + "\n")
+        return True
+
+    # --- [55] VIEW ALL YOUTUBE PROGRESS ---
+    if first_token in ['55', '/55', '/yt-progress', '/youtube-progress', 'yt-progress', 'youtube-progress']:
+        result = list_all_tracked_videos()
+        print("\n" + format_all_tracked(result) + "\n")
+        return True
+
+    # --- [56] VIEW YOUTUBE PLAYLIST PROGRESS ---
+    if first_token in ['56', '/56', '/yt-playlist', '/youtube-playlist', 'yt-playlist', 'youtube-playlist']:
+        if not arg_str:
+            arg_str = input("👉 Enter YouTube playlist URL or playlist ID: ").strip()
+        if not arg_str:
+            print("⚠️ Operation cancelled.\n")
+            return True
+        print(f"\n📋 Loading playlist info...\n")
+        result = get_playlist_progress(arg_str)
+        print(format_playlist_progress(result) + "\n")
+        return True
+
+    # Not a CLI command -> send to AI
+    return False
+
+
+def main():
+    """Main CLI runtime."""
+    print("=" * 70)
+    print("AI LIFE & PRODUCTIVITY AGENT (v3.1 — Browser, Email & YouTube Edition)")
+    print("Powered by OmniRoute")
+    print("=" * 70)
+    print("\nInitializing memory subsystem & agent...")
+
+    try:
+        agent = ProductivityAgent(resume_session=True)
+        print("✓ Agent and Memory Engine ready!\n")
+
+        # Proactive Morning Briefing on Startup!
+        print(agent.memory.get_morning_briefing())
+        print("\n💡 Tip: Enter any command number (0-43), '/help', or chat with your agent!\n")
+
+        while True:
+            user_input = input("You: ").strip()
+
+            if not user_input:
+                continue
+
+            # Check and execute CLI command (numbers 0-43 or /commands)
+            res = execute_cli_command(agent, user_input)
+            if res == "EXIT":
+                print("\nAgent: Goodbye Deepak! Stay consistent and crush your goals! 🚀\n")
+                break
+            elif res is True:
+                continue
+
+            # --- AI CONVERSATION (With Smart Pruned Context) ---
+            print("\nAgent: ", end="", flush=True)
+            try:
+                response = agent.chat(user_input)
+                print(response)
+            except Exception as e:
+                print(f"\n❌ Error communicating with agent: {e}")
+                print("Please verify OmniRoute is running at the configured URL.")
+            print()
+
+    except ValueError as e:
+        print(f"\n❌ Configuration Error: {e}")
+        print("\nPlease check your .env configuration.")
+    except Exception as e:
+        print(f"\n❌ Unexpected Error: {e}")
+
+
+if __name__ == "__main__":
+    main()
+
