@@ -2195,3 +2195,84 @@ class MemoryManager:
                     possible_days = max(1, min(days, days_alive))
                 except Exception:
                     pass
+
+            score = min(100.0, (completed_days / float(possible_days)) * 100.0)
+            habit_scores.append({
+                "id": h.get("id"),
+                "name": h.get("name"),
+                "streak": h.get("streak", 0),
+                "completed_days": completed_days,
+                "possible_days": possible_days,
+                "consistency_score": round(score, 1)
+            })
+
+        avg_habit_consistency = (sum(h["consistency_score"] for h in habit_scores) / len(habit_scores)) if habit_scores else 0.0
+
+        if avg_habit_consistency >= 90:
+            consistency_grade = "A+ (Elite Consistency 🏆)"
+        elif avg_habit_consistency >= 80:
+            consistency_grade = "A (Strong Habit Flow 🌟)"
+        elif avg_habit_consistency >= 70:
+            consistency_grade = "B (Good Momentum ⚡)"
+        elif avg_habit_consistency >= 50:
+            consistency_grade = "C (Building Routine 📈)"
+        else:
+            consistency_grade = "D (Needs Attention ⚠️)"
+
+        # 3. GOAL PROGRESS VISUALIZATIONS
+        goal_progress_list = []
+        for g in self.goals:
+            g_title = g.get("title", "")
+            linked_tasks = [t for t in all_tasks if (t.get("goal") and t.get("goal").lower() == g_title.lower())]
+            completed_linked = [t for t in linked_tasks if t.get("status") == "completed"]
+            
+            milestones = g.get("milestones", [])
+            # Calculate goal percentage
+            task_ratio = (len(completed_linked) / len(linked_tasks)) if linked_tasks else 0.0
+            
+            # Estimated progress
+            if linked_tasks:
+                progress_pct = round(task_ratio * 100.0, 1)
+            else:
+                progress_pct = 100.0 if g.get("status") == "completed" else (20.0 if g.get("status") == "active" else 0.0)
+
+            goal_progress_list.append({
+                "id": g.get("id"),
+                "title": g_title,
+                "category": g.get("category", "general"),
+                "deadline": g.get("deadline"),
+                "status": g.get("status", "active"),
+                "total_tasks": len(linked_tasks),
+                "completed_tasks": len(completed_linked),
+                "milestones_count": len(milestones),
+                "progress_pct": progress_pct
+            })
+
+        return {
+            "period": period,
+            "days": days,
+            "period_start": period_start_str,
+            "period_end": now.strftime("%Y-%m-%d"),
+            "tasks": {
+                "completed_count": curr_count,
+                "prior_completed_count": prior_count,
+                "created_count": len(created_in_period),
+                "pending_count": len(pending_tasks),
+                "completion_rate": round(completion_rate, 1),
+                "trend_str": trend_str,
+                "daily_completions": daily_completions
+            },
+            "productivity_patterns": {
+                "time_of_day_counts": time_of_day_counts,
+                "peak_time_slot": peak_time_slot[0],
+                "peak_count": peak_time_slot[1],
+                "total_analyzed": sum(time_of_day_counts.values())
+            },
+            "habits": {
+                "overall_score": round(avg_habit_consistency, 1),
+                "grade": consistency_grade,
+                "details": habit_scores
+            },
+            "goals": goal_progress_list
+        }
+
