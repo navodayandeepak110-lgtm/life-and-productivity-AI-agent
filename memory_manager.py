@@ -1134,3 +1134,1064 @@ class MemoryManager:
 
             if not day_tasks and i < 6:
                 L.append(f"        ✅  Free — great for revision or extra practice")
+
+        # ── WEEK SUMMARY BAR ──────────────────────────────────────────
+        total_week_tasks = sum(
+            len(task_map.get((week_start + _dt.timedelta(days=i)).isoformat(), []))
+            for i in range(7)
+        )
+        L.append("")
+        L.append("─" * 56)
+        L.append(f"📊  This week: {total_week_tasks} task deadlines across 6 study days")
+        L.append("")
+
+        # ── MILESTONE COUNTDOWNS ──────────────────────────────────────
+        L.append("⏳  MILESTONE COUNTDOWNS")
+        L.append("─" * 56)
+
+        milestones = []
+
+        # Java deadline from context
+        java_dl = self.context.get("september_goal", "")
+        if "Sep" in java_dl or "September" in java_dl:
+            java_date = _dt.date(today.year, 9, 30)
+            java_days = (java_date - today).days
+            bar = self._progress_bar(java_days, 30)
+            milestones.append((java_days, f"🟠  Java Complete (Sep 30)   {bar}  {java_days}d left"))
+
+        # GATE 2028 — February 1 2028 (approximate)
+        gate_date = _dt.date(2028, 2, 1)
+        gate_days = (gate_date - today).days
+        gate_bar  = self._progress_bar(gate_days, 365 * 2)
+        milestones.append((gate_days, f"🎯  GATE CSE 2028            {gate_bar}  {gate_days}d left"))
+
+        # Days since study journey started (agent created Aug 30)
+        start_date = _dt.date(2026, 8, 30)
+        days_in = (today - start_date).days
+        milestones.append((0, f"🌱  Study Journey            Day {days_in} in progress!"))
+
+        # Check goals for custom deadlines
+        for g in self.goals:
+            dl = g.get("deadline")
+            if not dl:
+                continue
+            gdays = self._days_until(dl)
+            if gdays is None or gdays < 0 or gdays > 365 * 2:
+                continue
+            title = g.get("title", "Goal")[:28]
+            bar   = self._progress_bar(gdays, 365)
+            # Avoid duplicates with known milestones
+            if "GATE" in title or "Java" in title or "Backend" in title:
+                continue
+            milestones.append((gdays, f"🏆  {title:<28} {bar}  {gdays}d left"))
+
+        for _, line in milestones:
+            L.append(f"  {line}")
+
+        L.append("")
+        L.append("─" * 56)
+        L.append("💡  Commands:")
+        L.append("    /cal       — refresh this calendar")
+        L.append("    /tasks     — full task list with priorities")
+        L.append("    /deadlines — detailed deadline alerts")
+        L.append("")
+
+        return "\n".join(L)
+
+    def _progress_bar(self, days_left: int, total_days: int, width: int = 12) -> str:
+        """Generate a compact ASCII progress bar showing time elapsed vs total."""
+        if total_days <= 0:
+            return "[" + "░" * width + "]"
+        elapsed = max(0, total_days - days_left)
+        filled  = int((elapsed / total_days) * width)
+        filled  = min(filled, width)
+        empty   = width - filled
+        return "[" + "█" * filled + "░" * empty + "]"
+
+    def get_morning_briefing(self) -> str:
+        """Beautiful dashboard: Dashboard -> This Week -> Tomorrow -> Today -> What do you need?"""
+        import datetime as _dt
+        now = datetime.now()
+        day_name = now.strftime("%A")
+        date_str = now.strftime("%B %d, %Y")
+        today = date.today()
+        today_str = today.isoformat()
+        tomorrow = today + _dt.timedelta(days=1)
+
+        # Time-based greeting
+        hour = now.hour
+        if hour < 12:
+            greeting, greet_emoji = "Good Morning", "🌅"
+        elif hour < 17:
+            greeting, greet_emoji = "Good Afternoon", "☀️"
+        else:
+            greeting, greet_emoji = "Good Evening", "🌙"
+
+        name = self.context.get("name", "Deepak")
+        pending = [t for t in self.tasks if t.get("status") != "completed"]
+        completed_count = len([t for t in self.tasks if t.get("status") == "completed"])
+        urgent_count = len([t for t in pending if t.get("priority") == "urgent"])
+        high_count   = len([t for t in pending if t.get("priority") == "high"])
+
+        L = []  # lines accumulator
+
+        # ── HEADER ────────────────────────────────────────
+        L.append(f"{greet_emoji}  {greeting}, {name}!")
+        L.append(f"📅  {day_name}, {date_str}")
+        L.append("─" * 52)
+
+        # ── 1. THIS WEEK'S PLAN ───────────────────────────
+        L.append("")
+        L.append("📅  THIS WEEK'S PLAN")
+        L.append("─" * 52)
+
+        L.append("📚  Study Timetable  (Mon – Sat):")
+        L.append("    🎓  College        ->  8:00 AM – 5:00 PM")
+        L.append("    🌆  Evening 5:30   ->  Block 1: DSA Java (Pepcoding — 2.5h)")
+        L.append("    🌙  Night 8:00     ->  Block 2: Java Core / GATE DSA Alternating (2.5h)")
+        L.append("                           • Odd Days (Mon/Wed/Fri): Java Core (Coder Army)")
+        L.append("                           • Even Days (Tue/Thu/Sat): DSA for GATE (Viswadeep Sir)")
+        L.append("    ✨  Night 10:30    ->  Block 3: SQL One-shot Progress (30m)")
+        L.append("    🛋  Sunday         ->  Complete Rest (No Study)")
+        L.append("")
+        L.append("🎯  Daily Targets This Week:")
+        L.append("    💻  10 DSA Java videos    (Pepcoding — from basics)")
+        L.append("    📹  1 Java video          (Coder Army — Mon/Wed/Fri)")
+        L.append("    📖  1 GATE DSA video      (Viswadeep Sir — Tue/Thu/Sat)")
+        L.append("    🗄  SQL one-shot progress (30m daily)")
+
+        # ── 2. TOMORROW'S PLAN ────────────────────────────
+        L.append("")
+        L.append("─" * 52)
+        L.append("🌙  TOMORROW'S PLAN")
+        L.append("─" * 52)
+
+        tomorrow_tasks = [t for t in pending if self._days_until(t.get("deadline")) == 1]
+        if tomorrow_tasks:
+            L.append("📌  Due tomorrow:")
+            for t in tomorrow_tasks:
+                prio = t.get("priority", "medium")
+                icon = {"urgent": "🔴", "high": "🟠", "medium": "🟡"}.get(prio, "🟢")
+                L.append(f"    {icon}  [Task #{t['id']}] {t.get('title')}")
+        else:
+            L.append("    ✨  No deadlines due tomorrow — great position!")
+
+        L.append("")
+        L.append("💡  Prep tonight:")
+        L.append("    📝  Review today's notes before sleeping")
+        L.append("    🎒  Plan which videos to watch tomorrow")
+        L.append("    😴  Sleep by 11 PM for a fresh morning")
+
+        # ── 3. TODAY'S PLAN ───────────────────────────────
+        L.append("")
+        L.append("─" * 52)
+        L.append("☀️  TODAY'S PLAN")
+        L.append("─" * 52)
+
+        today_weekday = today.weekday()
+        if today_weekday == 6:
+            L.append("🛋️  Today's Routine: Sunday Complete Rest Day — relax and recharge!")
+        elif today_weekday in [0, 2, 4]:
+            day_label = "Monday" if today_weekday == 0 else ("Wednesday" if today_weekday == 2 else "Friday")
+            L.append(f"📚  Today's Routine ({day_label} — Odd Day):")
+            L.append("    🎓  8:00 AM – 5:00 PM  : College")
+            L.append("    🌆  5:30 – 8:00 PM     : Block 1 — DSA Java (Pepcoding — 10 videos from basics)")
+            L.append("    🟢  8:00 – 10:30 PM    : Block 2 — Java Core (Coder Army — 1 video)")
+            L.append("    ✨  10:30 – 11:00 PM   : Block 3 — SQL One-shot progress (30 min)")
+        else:
+            day_label = "Tuesday" if today_weekday == 1 else ("Thursday" if today_weekday == 3 else "Saturday")
+            L.append(f"📚  Today's Routine ({day_label} — Even Day):")
+            L.append("    🎓  8:00 AM – 5:00 PM  : College")
+            L.append("    🌆  5:30 – 8:00 PM     : Block 1 — DSA Java (Pepcoding — 10 videos from basics)")
+            L.append("    🟢  8:00 – 10:30 PM    : Block 2 — DSA for GATE (Viswadeep Sir — 1 video)")
+            L.append("    ✨  10:30 – 11:00 PM   : Block 3 — SQL One-shot progress (30 min)")
+
+        # Habits with ID numbers
+        if self.habits:
+            L.append("")
+            L.append("🔁  Habits Today:")
+            for h in self.habits:
+                done = any(
+                    lg.get("date") == today_str and lg.get("completed")
+                    for lg in h.get("log", [])
+                )
+                status = "✅  Done" if done else "⏳  Pending"
+                streak_str = f" (🔥 {h.get('streak', 0)}d)" if h.get("streak", 0) > 0 else ""
+                L.append(f"    [#{h['id']}] {status}  —  {h.get('name')}{streak_str}")
+
+        # ── 4. PRIORITIES & DEADLINE RADAR ────────────────
+        L.append("")
+        L.append("─" * 52)
+        L.append("⚡  PRIORITIES & DEADLINE RADAR")
+        L.append("─" * 52)
+
+        # 4a. Deadline Alerts
+        alert_text = self.get_deadline_alerts()
+        if "No approaching" not in alert_text:
+            L.append("⏰  Deadline Alerts:")
+            for al in alert_text.split("\n")[1:]:
+                al = al.strip()
+                if not al:
+                    continue
+                if "OVERDUE" in al:
+                    L.append(f"    🔴  {al.replace('OVERDUE  ->', '').strip()}")
+                elif "TODAY" in al:
+                    L.append(f"    🟠  {al.replace('TODAY    ->', '').strip()}")
+                elif "CRITICAL" in al:
+                    L.append(f"    🟡  {al.replace('CRITICAL ->', '').strip()}")
+                elif "WARNING" in al:
+                    L.append(f"    🔵  {al.replace('WARNING  ->', '').strip()}")
+            L.append("")
+        else:
+            L.append("⏰  Deadline Alerts:\n    ✨  No overdue or urgent deadlines!\n")
+
+        # 4b. Top Priorities
+        sorted_pending = sorted(pending, key=lambda x: self._get_effective_priority(x), reverse=True)
+        if sorted_pending:
+            L.append("🥇  Top Priorities:")
+            medals = ["🥇", "🥈", "🥉"]
+            for i, t in enumerate(sorted_pending[:3]):
+                days = self._days_until(t.get("deadline"))
+                if days is not None and days < 0:
+                    urgency = f"  ⚠️ {abs(days)}d OVERDUE"
+                elif days == 0:
+                    urgency = "  ⚠️ Due TODAY"
+                elif days is not None and days <= 2:
+                    urgency = f"  ⚡ {days}d left"
+                else:
+                    urgency = f"  (Due: {t.get('deadline')})" if t.get("deadline") else ""
+                medal = medals[i] if i < 3 else "   •"
+                L.append(f"    {medal}  [Task #{t['id']}] {t.get('title')}{urgency}")
+            L.append("")
+        else:
+            L.append("🥇  Top Priorities:\n    🎉  All caught up — add a task with /add-task!\n")
+
+        # 4c. Tasks Due This Week
+        week_tasks = []
+        for t in pending:
+            days = self._days_until(t.get("deadline"))
+            if days is not None and 0 <= days <= 7:
+                week_tasks.append((days, t))
+        week_tasks.sort(key=lambda x: x[0])
+
+        if week_tasks:
+            L.append("📅  Tasks Due This Week:")
+            for days_left, t in week_tasks[:6]:
+                prio = t.get("priority", "medium")
+                dot = {"urgent": "🔴", "high": "🟠", "medium": "🟡"}.get(prio, "🟢")
+                due_label = "today" if days_left == 0 else ("tomorrow" if days_left == 1 else f"in {days_left} days")
+                L.append(f"    {dot}  [Task #{t['id']}] {t.get('title')}  —  due {due_label}")
+        else:
+            L.append("📅  Tasks Due This Week:\n    ✨  No specific tasks due this week.")
+
+        # ── 5. QUICK ACTIONS & SHORTCUTS ──────────────────
+        L.append("")
+        L.append("─" * 52)
+        L.append("💬  QUICK ACTIONS & SHORTCUTS (Type Number or /cmd)")
+        L.append("─" * 52)
+        L.append("    [1]   🌅  Morning Briefing & Routine")
+        L.append("    [2]   ⚡  Priorities & Deadline Radar")
+        L.append("    [4]   📆  Weekly Study Calendar & Milestones")
+        L.append("    [8]   📋  Pending Tasks List")
+        L.append("    [10]  ✅  Check off completed tasks (e.g. 10 1,2)")
+        L.append("    [18]  🔁  Habits Tracker (or 19 to log)")
+        L.append("    [43]  📖  View ALL 43 Fast Commands (/help)")
+        L.append("    [0]   🚪  Exit Agent")
+        L.append("")
+        L.append("    👉  Type any command number (0-43), /command, or chat with AI!")
+        L.append("")
+
+        return "\n".join(L)
+
+    def get_pruned_context_summary(self, query: str = "") -> str:
+        """
+        Dynamically extracts ONLY relevant context sections based on query intent.
+        Reduces prompt token payload by 50-70% for faster responses and lower cost.
+        """
+        q = query.lower()
+        sections = []
+
+        # 1. Compact User Profile (Essential facts only)
+        if self.context:
+            context_summary = f"👤 User: {self.context.get('name', 'User')} ({self.context.get('year', 'Student')})"
+            if self.context.get("study_schedule"):
+                context_summary += f"\n📅 Schedule: {self.context.get('study_schedule')}"
+            sections.append(context_summary)
+
+        # Classify query intent
+        is_task_query = any(k in q for k in ["task", "todo", "plan", "today", "focus", "priority", "schedule", "do next", "work on", "week", "september"])
+        is_goal_query = any(k in q for k in ["goal", "gate", "career", "milestone", "backend", "target", "roadmap"])
+        is_habit_query = any(k in q for k in ["habit", "streak", "consistency", "routine", "daily"])
+        is_note_query = any(k in q for k in ["note", "playlist", "link", "resource", "youtube", "video", "formula", "cheat sheet"])
+        is_review_query = any(k in q for k in ["review", "yesterday", "progress", "week", "reflect", "journal"])
+
+        # Default: provide high-level snapshot if ambiguous
+        if not (is_task_query or is_goal_query or is_habit_query or is_note_query or is_review_query):
+            is_task_query = True
+            is_goal_query = True
+            is_habit_query = True
+
+        # Goals (Include active goals)
+        if (is_goal_query or is_task_query) and self.goals:
+            goal_lines = ["## GOALS"]
+            for g in self.goals:
+                if g.get("status") == "active":
+                    deadline_str = f" (Due: {g.get('deadline')})" if g.get("deadline") else ""
+                    goal_lines.append(f"- [ID #{g['id']}] {g.get('title')}{deadline_str}")
+            sections.append("\n".join(goal_lines))
+
+        # Tasks (Deadline-adjusted effective priority sort)
+        if is_task_query and self.tasks:
+            pending_tasks = [t for t in self.tasks if t.get("status") != "completed"]
+            sorted_pending = sorted(
+                pending_tasks,
+                key=lambda x: self._get_effective_priority(x),
+                reverse=True
+            )
+            task_lines = [f"## PENDING TASKS ({len(pending_tasks)} active)"]
+            for t in sorted_pending[:8]:
+                prio = t.get("priority", "medium").upper()
+                days = self._days_until(t.get("deadline"))
+                if days is not None and days < 0:
+                    due = f" [!! {abs(days)}d OVERDUE]"
+                elif days == 0:
+                    due = " [!! DUE TODAY]"
+                elif days is not None and days <= 2:
+                    due = f" [>> {days}d left]"
+                else:
+                    due = f" (Due: {t.get('deadline')})" if t.get("deadline") else ""
+                task_lines.append(f"- [ID #{t['id']}] [{prio}] {t.get('title')}{due}")
+            sections.append("\n".join(task_lines))
+
+            # Inject deadline alerts if any
+            alert_text = self.get_deadline_alerts()
+            if "No approaching" not in alert_text:
+                sections.append(alert_text)
+
+        # Habits
+        if is_habit_query and self.habits:
+            today_str = date.today().isoformat()
+            habit_lines = ["## HABITS"]
+            for h in self.habits:
+                done = any(l.get("date") == today_str and l.get("completed") for l in h.get("log", []))
+                status = "✅ Done" if done else "⏳ Pending"
+                habit_lines.append(f"- [ID #{h['id']}] {h.get('name')} (🔥 {h.get('streak', 0)}d) | {status}")
+            sections.append("\n".join(habit_lines))
+
+        # Notes
+        if is_note_query and self.notes:
+            note_lines = ["## RELEVANT NOTES"]
+            for n in self.notes[-3:]:
+                note_lines.append(f"- [ID #{n['id']}] **{n.get('title')}**: {n.get('content')[:140]}...")
+            sections.append("\n".join(note_lines))
+
+        # Journal / Retrospectives
+        if is_review_query and self.journal:
+            journal_lines = ["## RECENT JOURNAL"]
+            for j in self.journal[-2:]:
+                journal_lines.append(f"- {j.get('date')}: {j.get('summary')}")
+            sections.append("\n".join(journal_lines))
+
+        return "\n\n".join(sections) if sections else "No user data recorded."
+
+    # =========================================================================
+    # FAST LOCAL CLI FORMATTERS & ACTION HELPERS
+    # =========================================================================
+
+    def get_tasks_formatted(self, status: str = "pending") -> str:
+        """Return clean, instant formatted task list without LLM latency."""
+        pending = [t for t in self.tasks if t.get("status") != "completed"]
+        completed = [t for t in self.tasks if t.get("status") == "completed"]
+
+        if status == "pending":
+            if not pending:
+                return "No pending tasks! You are all caught up."
+            # Deadline-adjusted effective priority sort
+            sorted_tasks = sorted(pending, key=lambda x: self._get_effective_priority(x), reverse=True)
+            output = [f"PENDING TASKS ({len(pending)}):"]
+            for t in sorted_tasks:
+                prio = t.get("priority", "medium").upper()
+                days = self._days_until(t.get("deadline"))
+                if days is not None and days < 0:
+                    due = f" | !! {abs(days)}d OVERDUE"
+                elif days == 0:
+                    due = " | !! DUE TODAY"
+                elif days is not None and days <= 2:
+                    due = f" | >> {days}d left"
+                else:
+                    due = f" | Due: {t.get('deadline')}" if t.get("deadline") else ""
+                proj = f" | Project: {t.get('project')}" if t.get("project") else ""
+                output.append(f"  [ID #{t['id']}] [{prio}] {t.get('title')}{due}{proj}")
+            output.append("\nTip: Type '10 <id>' or '/done <id>' (e.g. 10 1 or /done 1) to mark complete instantly.")
+            return "\n".join(output)
+
+        elif status == "completed":
+            if not completed:
+                return "No completed tasks yet."
+            output = [f"COMPLETED TASKS ({len(completed)}):"]
+            for t in completed[-10:]:
+                output.append(f"  [ID #{t['id']}] {t.get('title')} (Done: {t.get('completed_at', 'N/A')[:10]})")
+            return "\n".join(output)
+
+        return ""
+
+    def get_goals_formatted(self) -> str:
+        if not self.goals:
+            return "No active goals found."
+        output = ["🎯 ACTIVE GOALS:"]
+        for g in self.goals:
+            deadline = f" (Deadline: {g.get('deadline')})" if g.get("deadline") else ""
+            output.append(f"\n  [ID #{g['id']}] **{g.get('title')}** [{g.get('category', 'general')}]{deadline}")
+            if g.get("milestones"):
+                for m in g.get("milestones", []):
+                    output.append(f"     • Milestone: {m}")
+        return "\n".join(output)
+
+    def get_habits_formatted(self) -> str:
+        if not self.habits:
+            return "No habits tracked yet."
+        today_str = date.today().isoformat()
+        output = ["🔁 HABIT TRACKER:"]
+        for h in self.habits:
+            done = any(l.get("date") == today_str and l.get("completed") for l in h.get("log", []))
+            status = "✅ Completed Today" if done else "⏳ Due Today"
+            output.append(f"  • [ID #{h['id']}] {h.get('name')} ({h.get('frequency', 'daily')}) | Streak: 🔥 {h.get('streak', 0)} days | {status}")
+        output.append("\n💡 Tip: Type '19 <id>' or '/log <id>' to toggle habit completion for today.")
+        return "\n".join(output)
+
+    def get_notes_formatted(self) -> str:
+        if not self.notes:
+            return "No saved notes found."
+        output = ["💡 KNOWLEDGE BASE & SAVED NOTES:"]
+        for n in self.notes:
+            tags = f" [{', '.join(n.get('tags', []))}]" if n.get("tags") else ""
+            output.append(f"\n  [ID #{n['id']}] **{n.get('title')}**{tags}:")
+            output.append(f"  {n.get('content')}")
+        return "\n".join(output)
+
+    def quick_complete_task(self, task_id: int) -> str:
+        task = self.complete_task(task_id)
+        if task:
+            return f"✅ Task #{task_id} '{task['title']}' marked as COMPLETED! 🎉"
+        return f"❌ Task with ID {task_id} not found."
+
+    def quick_complete_tasks(self, task_ids: List[int]) -> str:
+        """Complete multiple tasks in a single bulk operation."""
+        if not task_ids:
+            return "⚠️ No valid task IDs provided."
+        if len(task_ids) == 1:
+            return self.quick_complete_task(task_ids[0])
+        
+        completed_names = []
+        not_found = []
+        prev_states = {}
+        
+        for tid in task_ids:
+            t = next((task for task in self.tasks if task.get("id") == tid), None)
+            if t:
+                prev_states[str(tid)] = {"status": t.get("status"), "completed_at": t.get("completed_at")}
+                t["status"] = "completed"
+                t["completed_at"] = datetime.now().isoformat()
+                completed_names.append(f"#{tid} '{t.get('title')}'")
+            else:
+                not_found.append(str(tid))
+        
+        if completed_names:
+            self._save_json(self.tasks_file, self.tasks)
+            self._push_undo(
+                description=f"Bulk completed {len(completed_names)} task(s)",
+                action_type="bulk_complete",
+                data={"prev_states": prev_states}
+            )
+        
+        msg = f"🎉 Completed {len(completed_names)} task(s): {', '.join(completed_names)}"
+        if not_found:
+            msg += f"\n⚠️ Tasks not found: {', '.join(not_found)}"
+        return msg
+
+    def quick_add_task(self, title: str, priority: str = "medium", deadline: Optional[str] = None) -> str:
+        task = self.add_task(title=title, priority=priority, deadline=deadline)
+        deadline_msg = f" (Due: {task['deadline']})" if task.get('deadline') else ""
+        return f"✅ Task #{task['id']} '{task['title']}' added ([{task['priority'].upper()} priority]{deadline_msg})."
+
+    def quick_delete_task(self, task_id: int, archive: bool = False) -> str:
+        if archive:
+            archived = self.archive_task(task_id)
+            if archived:
+                return f"📁 Task #{task_id} '{archived.get('title')}' moved to archive.json."
+            return f"❌ Task #{task_id} not found."
+        ok = self.delete_task(task_id)
+        if ok:
+            return f"🗑️ Task #{task_id} deleted."
+        return f"❌ Task #{task_id} not found."
+
+    def quick_delete_tasks(self, task_ids: List[int], archive: bool = False) -> str:
+        """Delete or archive multiple tasks in a single bulk operation."""
+        if not task_ids:
+            return "⚠️ No valid task IDs provided."
+        if len(task_ids) == 1:
+            return self.quick_delete_task(task_ids[0], archive=archive)
+
+        if archive:
+            archived_items = []
+            not_found = []
+            for tid in task_ids:
+                res = self.archive_task(tid)
+                if res:
+                    archived_items.append(f"#{tid} '{res.get('title')}'")
+                else:
+                    not_found.append(str(tid))
+            msg = f"📁 Archived {len(archived_items)} task(s) to archive.json: {', '.join(archived_items)}"
+            if not_found:
+                msg += f"\n⚠️ Tasks not found: {', '.join(not_found)}"
+            return msg
+
+        deleted_tasks = []
+        not_found = []
+        for tid in task_ids:
+            t = next((task for task in self.tasks if task.get("id") == tid), None)
+            if t:
+                deleted_tasks.append(t)
+                self.tasks = [task for task in self.tasks if task.get("id") != tid]
+            else:
+                not_found.append(str(tid))
+        
+        if deleted_tasks:
+            self._save_json(self.tasks_file, self.tasks)
+            self._push_undo(
+                description=f"Deleted {len(deleted_tasks)} task(s)",
+                action_type="delete_task",
+                data={"tasks": deleted_tasks}
+            )
+        
+        ids_str = ", ".join(f"#{t.get('id')}" for t in deleted_tasks)
+        msg = f"🗑️ Deleted {len(deleted_tasks)} task(s): {ids_str}"
+        if not_found:
+            msg += f"\n⚠️ Tasks not found: {', '.join(not_found)}"
+        return msg
+
+    def quick_set_task_priority(self, task_id: int, priority: str) -> str:
+        prio = priority.lower()
+        if prio not in ["urgent", "high", "medium", "low"]:
+            return "⚠️ Priority must be: urgent, high, medium, or low."
+        task = self.update_task(task_id, priority=prio)
+        if task:
+            return f"⚡ Task #{task_id} priority updated to [{prio.upper()}]."
+        return f"❌ Task #{task_id} not found."
+
+    def quick_set_task_deadline(self, task_id: int, deadline: str) -> str:
+        parsed_dl = self.parse_natural_date(deadline)
+        task = self.update_task(task_id, deadline=parsed_dl)
+        if task:
+            return f"📅 Task #{task_id} deadline set to '{task.get('deadline')}'."
+        return f"❌ Task #{task_id} not found."
+
+    def quick_clear_completed_tasks(self, archive: bool = False) -> str:
+        """Clear completed tasks, optionally moving them to archive.json."""
+        completed = [t for t in self.tasks if t.get("status") == "completed"]
+        if not completed:
+            return "✨ No completed tasks to clear."
+        
+        if archive:
+            archived = self.archive_completed_tasks()
+            return f"📁 Archived {len(archived)} completed task(s) to archive.json."
+        
+        self.tasks = [t for t in self.tasks if t.get("status") != "completed"]
+        self._save_json(self.tasks_file, self.tasks)
+        self._push_undo(
+            description=f"Cleared {len(completed)} completed task(s)",
+            action_type="clear_completed",
+            data={"tasks": completed}
+        )
+        return f"🧹 Cleared {len(completed)} completed task(s)."
+
+    def quick_log_habit(self, habit_id: int, completed: bool = True) -> str:
+        habit = self.log_habit(habit_id, completed)
+        if habit:
+            status = "logged" if completed else "reset"
+            return f"🔁 Habit #{habit_id} '{habit['name']}' {status}! Current streak: 🔥 {habit.get('streak', 0)} days."
+        return f"❌ Habit with ID {habit_id} not found."
+
+    def quick_unlog_habit(self, habit_id: int) -> str:
+        return self.quick_log_habit(habit_id, completed=False)
+
+    def quick_add_habit(self, name: str, frequency: str = "daily", goal: Optional[str] = None) -> str:
+        habit = self.add_habit(name=name, frequency=frequency, goal=goal)
+        return f"🔁 Habit #{habit['id']} '{habit['name']}' added to tracker!"
+
+    def quick_delete_habit(self, habit_id: int) -> str:
+        ok = self.delete_habit(habit_id)
+        if ok:
+            return f"🗑️ Habit #{habit_id} deleted."
+        return f"❌ Habit #{habit_id} not found."
+
+    def quick_complete_goal(self, goal_id: int) -> str:
+        goal = self.update_goal(goal_id, status="completed")
+        if goal:
+            return f"🏆 Goal #{goal_id} '{goal['title']}' marked as COMPLETED! 🎉"
+        return f"❌ Goal #{goal_id} not found."
+
+    def quick_delete_goal(self, goal_id: int) -> str:
+        ok = self.delete_goal(goal_id)
+        if ok:
+            return f"🗑️ Goal #{goal_id} deleted."
+        return f"❌ Goal #{goal_id} not found."
+
+    def quick_add_note(self, title: str, content: str, tags: Optional[List[str]] = None) -> str:
+        note = self.save_note(title=title, content=content, tags=tags)
+        return f"💡 Note #{note['id']} '{note['title']}' saved to Knowledge Base!"
+
+    def quick_delete_note(self, note_id: int) -> str:
+        ok = self.delete_note(note_id)
+        if ok:
+            return f"🗑️ Note #{note_id} deleted."
+        return f"❌ Note #{note_id} not found."
+
+    def get_projects_formatted(self) -> str:
+        if not self.projects:
+            return "📁 No active projects found. Add one with /add-project <name>"
+        output = ["📁 ACTIVE PROJECTS:"]
+        for p in self.projects:
+            goal_str = f" (Goal: {p.get('goal')})" if p.get("goal") else ""
+            output.append(f"\n  [ID #{p['id']}] **{p.get('name')}** - Status: {p.get('status', 'active')}{goal_str}")
+            if p.get("description"):
+                output.append(f"     Description: {p.get('description')}")
+            if p.get("deliverables"):
+                output.append("     Deliverables:")
+                for d in p.get("deliverables", []):
+                    output.append(f"       • {d}")
+        return "\n".join(output)
+
+    def quick_add_project(self, name: str, description: str = "", goal: Optional[str] = None) -> str:
+        proj = self.add_project(name=name, description=description, goal=goal)
+        return f"📁 Project #{proj['id']} '{proj['name']}' created!"
+
+    def get_schedule_formatted(self) -> str:
+        lines = [
+            "📅 STUDY TIMETABLE & TARGETS",
+            "─" * 52,
+            "📚 Study Timetable (Mon – Sat):",
+            "    🎓 College        -> 8:00 AM – 5:00 PM",
+            "    🌆 Evening 5:30   -> Block 1: DSA Java (Pepcoding — 2.5h)",
+            "    🌙 Night 8:00     -> Block 2: Java Core / GATE DSA Alternating (2.5h)",
+            "                           • Odd Days (Mon/Wed/Fri): Java Core (Coder Army)",
+            "                           • Even Days (Tue/Thu/Sat): DSA for GATE (Viswadeep Sir)",
+            "    ✨ Night 10:30    -> Block 3: SQL One-shot Progress (30m)",
+            "    🛋 Sunday         -> Complete Rest (No Study)",
+            "",
+            "🎯 Daily Targets This Week:",
+            "    💻 10 DSA Java videos    (Pepcoding — from basics)",
+            "    📹 1 Java video          (Coder Army — Mon/Wed/Fri)",
+            "    📖 1 GATE DSA video      (Viswadeep Sir — Tue/Thu/Sat)",
+            "    🗄 SQL one-shot progress (30m daily)"
+        ]
+        return "\n".join(lines)
+
+    def get_priorities_radar_formatted(self) -> str:
+        pending = [t for t in self.tasks if t.get("status") != "completed"]
+        L = [
+            "⚡ PRIORITIES & DEADLINE RADAR",
+            "─" * 52
+        ]
+        # Alerts
+        alert_text = self.get_deadline_alerts()
+        if "No approaching" not in alert_text:
+            L.append("⏰ Deadline Alerts:")
+            for al in alert_text.split("\n")[1:]:
+                al = al.strip()
+                if not al: continue
+                if "OVERDUE" in al: L.append(f"    🔴 {al.replace('OVERDUE  ->', '').strip()}")
+                elif "TODAY" in al: L.append(f"    🟠 {al.replace('TODAY    ->', '').strip()}")
+                elif "CRITICAL" in al: L.append(f"    🟡 {al.replace('CRITICAL ->', '').strip()}")
+                elif "WARNING" in al: L.append(f"    🔵 {al.replace('WARNING  ->', '').strip()}")
+            L.append("")
+        else:
+            L.append("⏰ Deadline Alerts:\n    ✨ No overdue or urgent deadlines!\n")
+
+        # Top priorities
+        sorted_pending = sorted(pending, key=lambda x: self._get_effective_priority(x), reverse=True)
+        if sorted_pending:
+            L.append("🥇 Top Priorities:")
+            medals = ["🥇", "🥈", "🥉"]
+            for i, t in enumerate(sorted_pending[:3]):
+                days = self._days_until(t.get("deadline"))
+                if days is not None and days < 0: urgency = f"  ⚠️ {abs(days)}d OVERDUE"
+                elif days == 0: urgency = "  ⚠️ Due TODAY"
+                elif days is not None and days <= 2: urgency = f"  ⚡ {days}d left"
+                else: urgency = f"  (Due: {t.get('deadline')})" if t.get("deadline") else ""
+                medal = medals[i] if i < 3 else "   •"
+                L.append(f"    {medal} [Task #{t['id']}] {t.get('title')}{urgency}")
+            L.append("")
+        else:
+            L.append("🥇 Top Priorities:\n    🎉 All caught up!\n")
+
+        # Tasks due this week
+        week_tasks = []
+        for t in pending:
+            days = self._days_until(t.get("deadline"))
+            if days is not None and 0 <= days <= 7:
+                week_tasks.append((days, t))
+        week_tasks.sort(key=lambda x: x[0])
+        if week_tasks:
+            L.append("📅 Tasks Due This Week:")
+            for days_left, t in week_tasks[:6]:
+                prio = t.get("priority", "medium")
+                dot = {"urgent": "🔴", "high": "🟠", "medium": "🟡"}.get(prio, "🟢")
+                due_label = "today" if days_left == 0 else ("tomorrow" if days_left == 1 else f"in {days_left} days")
+                L.append(f"    {dot} [Task #{t['id']}] {t.get('title')}  —  due {due_label}")
+        else:
+            L.append("📅 Tasks Due This Week:\n    ✨ No specific tasks due this week.")
+        return "\n".join(L)
+
+    # =========================================================================
+    # ARCHIVE MANAGEMENT
+    # =========================================================================
+
+    def archive_task(self, task_id: int) -> Optional[Dict[str, Any]]:
+        """Move a task to archive.json and remove from active tasks."""
+        task = next((t for t in self.tasks if t.get("id") == task_id), None)
+        if task:
+            self.tasks = [t for t in self.tasks if t.get("id") != task_id]
+            archived_item = dict(task)
+            archived_item["archived_at"] = datetime.now().isoformat()
+            self.archive.append(archived_item)
+            self._save_json(self.tasks_file, self.tasks)
+            self._save_json(self.archive_file, self.archive)
+            self._push_undo(
+                description=f"Archived task #{task_id} '{task.get('title')}'",
+                action_type="archive_task",
+                data={"task": task}
+            )
+            return archived_item
+        return None
+
+    def archive_completed_tasks(self) -> List[Dict[str, Any]]:
+        """Move all completed tasks to archive.json."""
+        completed = [t for t in self.tasks if t.get("status") == "completed"]
+        if not completed:
+            return []
+        
+        self.tasks = [t for t in self.tasks if t.get("status") != "completed"]
+        for t in completed:
+            item = dict(t)
+            item["archived_at"] = datetime.now().isoformat()
+            self.archive.append(item)
+        
+        self._save_json(self.tasks_file, self.tasks)
+        self._save_json(self.archive_file, self.archive)
+        self._push_undo(
+            description=f"Archived {len(completed)} completed task(s)",
+            action_type="archive_completed",
+            data={"tasks": completed}
+        )
+        return completed
+
+    def get_archived_tasks_formatted(self) -> str:
+        """Formatted overview of archived tasks."""
+        if not self.archive:
+            return "📁 Archive is empty. No tasks archived yet."
+        output = [f"📁 ARCHIVED TASKS ({len(self.archive)}):"]
+        for a in self.archive[-25:]:
+            arch_date = a.get("archived_at", "N/A")[:10]
+            output.append(f"  [ID #{a.get('id')}] {a.get('title')} (Archived: {arch_date} | Status: {a.get('status')})")
+        return "\n".join(output)
+
+    # =========================================================================
+    # BULK HABIT LOGGING
+    # =========================================================================
+
+    def quick_bulk_log_habits(self, habit_ids: List[int], completed: bool = True) -> str:
+        """Log or reset completion for multiple habits at once."""
+        if not habit_ids:
+            return "⚠️ No habit IDs provided."
+        
+        logged = []
+        not_found = []
+        for hid in habit_ids:
+            h = self.log_habit(hid, completed)
+            if h:
+                logged.append(f"#{hid} '{h.get('name')}' (🔥 {h.get('streak', 0)}d)")
+            else:
+                not_found.append(str(hid))
+        
+        status_txt = "logged" if completed else "reset"
+        msg = f"🔁 Habits {status_txt}: {', '.join(logged)}"
+        if not_found:
+            msg += f"\n⚠️ Habits not found: {', '.join(not_found)}"
+        return msg
+
+    # =========================================================================
+    # FULL MEMORY EXPORT (JSON BACKUP)
+    # =========================================================================
+
+    def export_backup(self, export_dir: Optional[str] = None) -> Path:
+        """Export complete agent memory snapshot into a timestamped JSON backup file."""
+        out_dir = Path(export_dir) if export_dir else self.exports_dir
+        out_dir.mkdir(parents=True, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        export_path = out_dir / f"agent_backup_{timestamp}.json"
+        
+        payload = {
+            "exported_at": datetime.now().isoformat(),
+            "version": "3.0",
+            "stats": {
+                "tasks_pending": len([t for t in self.tasks if t.get("status") != "completed"]),
+                "tasks_completed": len([t for t in self.tasks if t.get("status") == "completed"]),
+                "tasks_archived": len(self.archive),
+                "goals": len(self.goals),
+                "projects": len(self.projects),
+                "habits": len(self.habits),
+                "journal_entries": len(self.journal),
+                "notes": len(self.notes),
+                "attachments": len(self.attachments)
+            },
+            "user_profile": self.context,
+            "goals": self.goals,
+            "projects": self.projects,
+            "tasks": self.tasks,
+            "archive": self.archive,
+            "habits": self.habits,
+            "journal": self.journal,
+            "notes": self.notes,
+            "attachments": self.attachments,
+            "active_session": self.current_session_id
+        }
+        
+        self._save_json(export_path, payload)
+        return export_path
+
+    # =========================================================================
+    # FILE ATTACHMENT SYSTEM
+    # =========================================================================
+
+    def add_attachment(self, source_path_or_bytes: Any, filename: str, description: str = "", content_type: Optional[str] = None) -> Dict[str, Any]:
+        """Save an attached file or bytes into agent_data/attachments and track in attachments.json."""
+        att_id = self._get_next_id(self.attachments)
+        
+        clean_name = Path(filename).name
+        stored_name = f"att_{att_id}_{clean_name}"
+        target_path = self.attachments_dir / stored_name
+        
+        text_preview = ""
+        file_size = 0
+        
+        if isinstance(source_path_or_bytes, (str, Path)):
+            src = Path(source_path_or_bytes)
+            if src.exists():
+                file_size = src.stat().st_size
+                shutil.copy2(src, target_path)
+                if src.suffix.lower() in [".txt", ".md", ".py", ".json", ".csv", ".log", ".yaml", ".yml", ".html", ".js", ".java", ".sql"]:
+                    try:
+                        with open(src, "r", encoding="utf-8", errors="ignore") as f:
+                            text_preview = f.read(2000)
+                    except Exception:
+                        pass
+            else:
+                raise FileNotFoundError(f"Source file {source_path_or_bytes} not found.")
+        elif isinstance(source_path_or_bytes, bytes):
+            file_size = len(source_path_or_bytes)
+            with open(target_path, "wb") as f:
+                f.write(source_path_or_bytes)
+            suffix = Path(filename).suffix.lower()
+            if suffix in [".txt", ".md", ".py", ".json", ".csv", ".log", ".yaml", ".yml", ".html", ".js", ".java", ".sql"]:
+                try:
+                    text_preview = source_path_or_bytes[:2000].decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+
+        record = {
+            "id": att_id,
+            "filename": stored_name,
+            "original_name": clean_name,
+            "file_type": content_type or Path(filename).suffix.lower() or "file",
+            "file_size": file_size,
+            "file_path": str(target_path),
+            "description": description,
+            "text_preview": text_preview,
+            "created_at": datetime.now().isoformat()
+        }
+        self.attachments.append(record)
+        self._save_json(self.attachments_file, self.attachments)
+        return record
+
+    def get_attachments_formatted(self) -> str:
+        """Formatted list of all saved attachments."""
+        if not self.attachments:
+            return "📎 No file attachments found. Use '/attach <filepath>' in CLI or send files/photos in Telegram."
+        output = [f"📎 FILE ATTACHMENTS ({len(self.attachments)}):"]
+        for a in self.attachments:
+            size_kb = a.get("file_size", 0) / 1024
+            desc = f" — {a.get('description')}" if a.get("description") else ""
+            date_str = a.get("created_at", "")[:10]
+            output.append(f"  • [ID #{a.get('id')}] **{a.get('original_name')}** ({size_kb:.1f} KB, {a.get('file_type')}) [{date_str}]{desc}")
+        return "\n".join(output)
+
+    def get_attachment(self, attachment_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieve attachment record by ID."""
+        return next((a for a in self.attachments if a.get("id") == attachment_id), None)
+
+    def delete_attachment(self, attachment_id: int) -> bool:
+        """Delete an attachment record and remove the stored file from disk."""
+        att = self.get_attachment(attachment_id)
+        if att:
+            try:
+                p = Path(att.get("file_path", ""))
+                if p.exists():
+                    p.unlink()
+            except Exception:
+                pass
+            self.attachments = [a for a in self.attachments if a.get("id") != attachment_id]
+            self._save_json(self.attachments_file, self.attachments)
+            return True
+        return False
+
+    # =========================================================================
+    # ANALYTICS & INSIGHTS ENGINE
+    # =========================================================================
+
+    def _make_progress_bar(self, percent: float, length: int = 10) -> str:
+        """Render a visual Unicode progress bar e.g. [████████░░] 80%."""
+        clamped = max(0.0, min(100.0, float(percent)))
+        filled = int(round((clamped / 100.0) * length))
+        empty = length - filled
+        return f"[{'█' * filled}{'░' * empty}] {clamped:.0f}%"
+
+    def generate_analytics_data(self, period: str = "weekly") -> Dict[str, Any]:
+        """
+        Compute deep productivity analytics over 'weekly' (7 days) or 'monthly' (30 days).
+        Includes:
+        - Task completion rate trends & comparison to prior period
+        - Time-of-day productivity patterns & peak focus window
+        - Habit consistency scores & grading
+        - Goal progress visualizations & health
+        """
+        now = datetime.now()
+        days = 7 if period.lower() == "weekly" else 30
+        period_start = now - timedelta(days=days)
+        prior_start = period_start - timedelta(days=days)
+
+        period_start_str = period_start.strftime("%Y-%m-%d")
+        prior_start_str = prior_start.strftime("%Y-%m-%d")
+
+        # 1. TASK COMPLETION TRENDS
+        all_tasks = self.tasks + self.archive
+        completed_in_period = []
+        completed_in_prior = []
+        created_in_period = []
+
+        daily_completions: Dict[str, int] = {}
+        for d_offset in range(days):
+            d_key = (period_start + timedelta(days=d_offset + 1)).strftime("%Y-%m-%d")
+            daily_completions[d_key] = 0
+
+        time_of_day_counts = {
+            "Early Morning (05-09)": 0,
+            "Late Morning (09-13)": 0,
+            "Afternoon (13-17)": 0,
+            "Evening (17-21)": 0,
+            "Night (21-05)": 0,
+        }
+        hourly_counts: Dict[int, int] = {h: 0 for h in range(24)}
+
+        for t in all_tasks:
+            cat = t.get("completed_at")
+            c_at = t.get("created_at")
+
+            # Creation tracking
+            if c_at:
+                try:
+                    c_dt = datetime.fromisoformat(c_at)
+                    if c_dt >= period_start:
+                        created_in_period.append(t)
+                except Exception:
+                    pass
+
+            # Completion tracking
+            if cat:
+                try:
+                    dt = datetime.fromisoformat(cat)
+                    if dt >= period_start:
+                        completed_in_period.append(t)
+                        day_key = dt.strftime("%Y-%m-%d")
+                        if day_key in daily_completions:
+                            daily_completions[day_key] += 1
+                        else:
+                            daily_completions[day_key] = 1
+
+                        # Time-of-day distribution
+                        hour = dt.hour
+                        hourly_counts[hour] = hourly_counts.get(hour, 0) + 1
+                        if 5 <= hour < 9:
+                            time_of_day_counts["Early Morning (05-09)"] += 1
+                        elif 9 <= hour < 13:
+                            time_of_day_counts["Late Morning (09-13)"] += 1
+                        elif 13 <= hour < 17:
+                            time_of_day_counts["Afternoon (13-17)"] += 1
+                        elif 17 <= hour < 21:
+                            time_of_day_counts["Evening (17-21)"] += 1
+                        else:
+                            time_of_day_counts["Night (21-05)"] += 1
+
+                    elif dt >= prior_start:
+                        completed_in_prior.append(t)
+                except Exception:
+                    pass
+
+        # If sparse completions in current window, fall back to all-time completions for time-of-day pattern
+        if sum(time_of_day_counts.values()) == 0:
+            for t in all_tasks:
+                cat = t.get("completed_at")
+                if cat:
+                    try:
+                        dt = datetime.fromisoformat(cat)
+                        hour = dt.hour
+                        hourly_counts[hour] = hourly_counts.get(hour, 0) + 1
+                        if 5 <= hour < 9:
+                            time_of_day_counts["Early Morning (05-09)"] += 1
+                        elif 9 <= hour < 13:
+                            time_of_day_counts["Late Morning (09-13)"] += 1
+                        elif 13 <= hour < 17:
+                            time_of_day_counts["Afternoon (13-17)"] += 1
+                        elif 17 <= hour < 21:
+                            time_of_day_counts["Evening (17-21)"] += 1
+                        else:
+                            time_of_day_counts["Night (21-05)"] += 1
+                    except Exception:
+                        pass
+
+        pending_tasks = [t for t in self.tasks if t.get("status") != "completed"]
+        total_active_pool = len(completed_in_period) + len(pending_tasks)
+        completion_rate = (len(completed_in_period) / total_active_pool * 100.0) if total_active_pool > 0 else 0.0
+
+        prior_count = len(completed_in_prior)
+        curr_count = len(completed_in_period)
+        if prior_count > 0:
+            trend_pct = ((curr_count - prior_count) / prior_count) * 100.0
+            trend_str = f"{'+' if trend_pct >= 0 else ''}{trend_pct:.1f}% vs prior {period}"
+        else:
+            trend_str = f"+{curr_count} tasks completed" if curr_count > 0 else "Baseline period"
+
+        # Peak focus determination
+        peak_time_slot = max(time_of_day_counts.items(), key=lambda x: x[1]) if sum(time_of_day_counts.values()) > 0 else ("Night (21-05)", 0)
+
+        # 2. HABIT CONSISTENCY SCORE
+        habit_scores = []
+        for h in self.habits:
+            logs = h.get("log", [])
+            completed_days = 0
+            for d_offset in range(days):
+                d_str = (period_start + timedelta(days=d_offset + 1)).strftime("%Y-%m-%d")
+                if any(l.get("date") == d_str and l.get("completed") for l in logs):
+                    completed_days += 1
+            
+            # For newly created habits, scale by days existing
+            c_at = h.get("created_at")
+            possible_days = days
+            if c_at:
+                try:
+                    c_date = datetime.fromisoformat(c_at).date()
+                    days_alive = (now.date() - c_date).days + 1
+                    possible_days = max(1, min(days, days_alive))
+                except Exception:
+                    pass
