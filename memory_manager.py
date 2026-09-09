@@ -2276,3 +2276,257 @@ class MemoryManager:
             "goals": goal_progress_list
         }
 
+    def get_analytics_report_formatted(self, period: str = "weekly") -> str:
+        """Render a beautifully structured, comprehensive text analytics report."""
+        data = self.generate_analytics_data(period=period)
+        p_title = "WEEKLY PRODUCTIVITY INTELLIGENCE REPORT" if period == "weekly" else "MONTHLY PRODUCTIVITY INTELLIGENCE REPORT"
+        timeframe_label = f"Last {data['days']} Days ({data['period_start']} to {data['period_end']})"
+
+        lines = [
+            "=" * 64,
+            f"📊 {p_title}",
+            f"📅 Timeframe: {timeframe_label}",
+            "=" * 64,
+            "",
+            "📈 1. TASK EXECUTION & COMPLETION TRENDS:",
+            f"  • Tasks Completed : {data['tasks']['completed_count']} tasks ({data['tasks']['trend_str']})",
+            f"  • Tasks Created   : {data['tasks']['created_count']} new tasks added",
+            f"  • Current Backlog : {data['tasks']['pending_count']} pending tasks",
+            f"  • Completion Rate : {self._make_progress_bar(data['tasks']['completion_rate'])}",
+            "",
+            "  📅 Daily Completion Sparkline:"
+        ]
+
+        # Render daily sparkline / bar
+        for day_str, count in data['tasks']['daily_completions'].items():
+            dt_obj = datetime.strptime(day_str, "%Y-%m-%d")
+            d_name = dt_obj.strftime("%a %b %d")
+            bar = "▪" * count if count > 0 else "—"
+            lines.append(f"    {d_name}: {bar} ({count})")
+
+        lines.extend([
+            "",
+            "⏰ 2. TIME-OF-DAY PRODUCTIVITY PATTERNS:",
+            f"  🔥 Peak Focus Zone: {data['productivity_patterns']['peak_time_slot']}"
+        ])
+
+        tot = max(1, data['productivity_patterns']['total_analyzed'])
+        for slot, cnt in data['productivity_patterns']['time_of_day_counts'].items():
+            pct = (cnt / tot) * 100.0
+            lines.append(f"    • {slot:<22}: {self._make_progress_bar(pct, length=8)} ({cnt} tasks)")
+
+        lines.extend([
+            "",
+            "🔁 3. HABIT CONSISTENCY & DISCIPLINE SCORE:",
+            f"  • Overall Score   : {self._make_progress_bar(data['habits']['overall_score'])}",
+            f"  • Consistency Grade: {data['habits']['grade']}",
+            "  • Habit Breakdown :"
+        ])
+
+        for h in data['habits']['details']:
+            h_bar = self._make_progress_bar(h['consistency_score'], length=6)
+            lines.append(f"    - [#{h['id']}] {h['name']:<24} {h_bar} | 🔥 {h['streak']}d streak ({h['completed_days']}/{h['possible_days']} days)")
+
+        lines.extend([
+            "",
+            "🎯 4. GOAL PROGRESS VISUALIZATIONS:",
+        ])
+
+        if data['goals']:
+            for g in data['goals']:
+                g_bar = self._make_progress_bar(g['progress_pct'], length=10)
+                dl = f" (Due: {g['deadline']})" if g.get('deadline') else ""
+                lines.append(f"  • [#{g['id']}] **{g['title']}** [{g['category']}]{dl}")
+                lines.append(f"    Progress: {g_bar} ({g['completed_tasks']}/{g['total_tasks']} tasks linked, {g['milestones_count']} milestones)")
+        else:
+            lines.append("  • No active goals registered yet. Use /goal <title> to set one!")
+
+        lines.extend([
+            "",
+            "💡 KEY PRODUCTIVITY INSIGHT:",
+        ])
+
+        # Dynamic AI rule-based coaching insight
+        if data['habits']['overall_score'] >= 80 and data['tasks']['completed_count'] >= 5:
+            lines.append("  🚀 Outstanding momentum! Your consistency is prime. Protect your peak focus window and knock out high-priority milestones.")
+        elif data['habits']['overall_score'] < 60:
+            lines.append("  ⚡ Recommendation: Your habit consistency dropped below 60%. Prioritize logging your 1-2 core anchor habits (e.g. Daily DSA) early in the day.")
+        elif data['tasks']['pending_count'] > 10:
+            lines.append("  ⚠️ Backlog Alert: You have over 10 pending tasks. Pick top 3 for tomorrow using /radar and clear or archive stale items with /cleardone.")
+        else:
+            lines.append("  ✨ Steady progress! Maintain your daily streak and review /deadlines to stay ahead of upcoming target dates.")
+
+        lines.append("=" * 64)
+        return "\n".join(lines)
+
+    def get_goal_progress_visualizations(self) -> str:
+        """Visual goal progress overview for all goals."""
+        data = self.generate_analytics_data(period="weekly")
+        lines = [
+            "🎯 ACTIVE GOALS & ROADMAP PROGRESS:",
+            "=" * 50
+        ]
+        if not data["goals"]:
+            return "🎯 No active goals found. Add a goal using /goal <name> or ask your AI agent!"
+
+        for g in data["goals"]:
+            bar = self._make_progress_bar(g["progress_pct"], length=12)
+            dl = f" | ⏳ Deadline: {g['deadline']}" if g.get("deadline") else ""
+            lines.append(f"📁 [Goal #{g['id']}] **{g['title']}** [{g['category']}]{dl}")
+            lines.append(f"   Progress : {bar}")
+            lines.append(f"   Execution: {g['completed_tasks']}/{g['total_tasks']} linked tasks done • {g['milestones_count']} milestones")
+            lines.append("")
+        return "\n".join(lines)
+
+    def get_habit_consistency_score(self, period: str = "weekly") -> str:
+        """Visual breakdown of habit consistency and streaks."""
+        data = self.generate_analytics_data(period=period)
+        lines = [
+            f"🔁 HABIT CONSISTENCY SCORECARD ({period.upper()}):",
+            "=" * 50,
+            f"Overall Grade: {data['habits']['grade']}",
+            f"Overall Score: {self._make_progress_bar(data['habits']['overall_score'], length=12)}",
+            "",
+            "Habit Details:"
+        ]
+        for h in data['habits']['details']:
+            bar = self._make_progress_bar(h['consistency_score'], length=8)
+            lines.append(f"  • [#{h['id']}] {h['name']}")
+            lines.append(f"    Consistency: {bar} | Logged: {h['completed_days']}/{h['possible_days']} days | Streak: 🔥 {h['streak']} days")
+        return "\n".join(lines)
+
+    # =========================================================================
+    # SMART NOTIFICATIONS & PROACTIVE ALERTS ENGINE
+    # =========================================================================
+
+    def check_smart_notifications(self, force: bool = False) -> List[Dict[str, Any]]:
+        """
+        Evaluate proactive productivity triggers:
+        1. Tasks due within 2 hours (or due today / overdue)
+        2. Habit streak at risk (daily habits unlogged after 5:00 PM)
+        3. Weekly review ready (Sunday evening or milestone volume)
+        
+        Uses self.notifications_state for deduplication to prevent spamming.
+        """
+        now = datetime.now()
+        today_str = now.strftime("%Y-%m-%d")
+        current_hour = now.hour
+        notifications: List[Dict[str, Any]] = []
+
+        # 1. TASKS DUE SOON (< 2 HOURS) & OVERDUE
+        for t in self.tasks:
+            if t.get("status") == "completed":
+                continue
+            dl_str = t.get("deadline")
+            if not dl_str:
+                continue
+
+            # Try to parse deadline
+            parsed_dt = None
+            if dateparser:
+                try:
+                    parsed_dt = dateparser.parse(dl_str)
+                except Exception:
+                    pass
+
+            if parsed_dt:
+                time_diff = (parsed_dt - now).total_seconds()
+                tid = t.get("id")
+                # If due within 2 hours (0 to 7200 seconds)
+                if 0 <= time_diff <= 7200:
+                    alert_key = f"due_2h_task_{tid}_{today_str}_{parsed_dt.strftime('%H')}"
+                    last_sent = self.notifications_state.get(alert_key)
+                    if not last_sent or force:
+                        mins_left = max(1, int(time_diff / 60))
+                        notifications.append({
+                            "type": "task_due_soon",
+                            "severity": "urgent",
+                            "title": "⏰ Task Due Soon",
+                            "message": f"You have task #{tid} '{t.get('title')}' due in {mins_left} minutes ({parsed_dt.strftime('%I:%M %p')})!",
+                            "key": alert_key
+                        })
+                        self.notifications_state[alert_key] = now.isoformat()
+
+                # Overdue check
+                elif time_diff < 0:
+                    alert_key = f"overdue_task_{tid}_{today_str}"
+                    last_sent = self.notifications_state.get(alert_key)
+                    if not last_sent and (current_hour in [9, 14, 19] or force):
+                        notifications.append({
+                            "type": "task_overdue",
+                            "severity": "high",
+                            "title": "⚠️ Task Overdue",
+                            "message": f"Task #{tid} '{t.get('title')}' was due on {dl_str}. Mark it done or reschedule with /due {tid} <date>.",
+                            "key": alert_key
+                        })
+                        self.notifications_state[alert_key] = now.isoformat()
+
+        # 2. HABIT STREAK AT RISK (After 5:00 PM / 17:00)
+        if self.habits and (current_hour >= 17 or force):
+            unlogged_habits = []
+            for h in self.habits:
+                logs = h.get("log", [])
+                done_today = any(l.get("date") == today_str and l.get("completed") for l in logs)
+                if not done_today:
+                    unlogged_habits.append(h)
+
+            if unlogged_habits:
+                alert_key = f"streak_at_risk_{today_str}"
+                last_sent = self.notifications_state.get(alert_key)
+                if not last_sent or force:
+                    h_names = ", ".join([f"'{h.get('name')}'" for h in unlogged_habits[:3]])
+                    if len(unlogged_habits) > 3:
+                        h_names += f" +{len(unlogged_habits) - 3} more"
+                    notifications.append({
+                        "type": "streak_at_risk",
+                        "severity": "medium",
+                        "title": "🔥 Streak At Risk",
+                        "message": f"Your streak is at risk — you have {len(unlogged_habits)} unlogged habit(s) today ({h_names}). Log with /log or check /habits before midnight!",
+                        "key": alert_key
+                    })
+                    self.notifications_state[alert_key] = now.isoformat()
+
+        # 3. WEEKLY REVIEW READY (Sunday evening or week wrap)
+        # Week number key e.g. 2026-W36
+        week_key = now.strftime("%Y-W%W")
+        is_sunday = (now.weekday() == 6)
+        if (is_sunday and current_hour >= 17) or force:
+            alert_key = f"weekly_review_ready_{week_key}"
+            last_sent = self.notifications_state.get(alert_key)
+            if not last_sent or force:
+                weekly_data = self.generate_analytics_data("weekly")
+                c_count = weekly_data["tasks"]["completed_count"]
+                notifications.append({
+                    "type": "weekly_review_ready",
+                    "severity": "info",
+                    "title": "📊 Weekly Review Ready",
+                    "message": f"Weekly review ready — {c_count} tasks completed! Type /report or /weekly to view your complete insights & consistency score.",
+                    "key": alert_key
+                })
+                self.notifications_state[alert_key] = now.isoformat()
+
+        # Prune old state entries (older than 30 days) to prevent bloat
+        if len(self.notifications_state) > 100:
+            cutoff = (now - timedelta(days=30)).isoformat()
+            self.notifications_state = {k: v for k, v in self.notifications_state.items() if v >= cutoff}
+
+        if notifications:
+            self._save_json(self.notifications_file, self.notifications_state)
+
+        return notifications
+
+    def get_proactive_notifications_formatted(self, force: bool = True) -> str:
+        """Format active smart notifications into user-facing text."""
+        notifs = self.check_smart_notifications(force=force)
+        if not notifs:
+            return "🔔 All quiet! No urgent deadline alerts or streak warnings right now. You're on track! 🎯"
+        lines = [
+            "🔔 SMART NOTIFICATIONS & PROACTIVE ALERTS:",
+            "=" * 50
+        ]
+        for n in notifs:
+            lines.append(f"{n['title']}:")
+            lines.append(f"  👉 {n['message']}")
+            lines.append("")
+        return "\n".join(lines).strip()
+
