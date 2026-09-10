@@ -310,3 +310,283 @@ async def cmd_undo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(get_agent().memory.undo())
 
+async def cmd_export(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    try:
+        export_path = get_agent().memory.export_backup()
+        with open(export_path, "rb") as doc:
+            await update.message.reply_document(
+                document=doc,
+                filename=export_path.name,
+                caption=f"💾 Memory Backup ({export_path.name})\nComplete JSON snapshot created successfully."
+            )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Export failed: {e}")
+
+async def cmd_attachments(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_attachments_formatted())
+
+async def cmd_habits(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_habits_formatted())
+
+async def cmd_log(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    raw = " ".join(ctx.args).strip()
+    ids = get_agent().memory._parse_id_list(raw)
+    if not ids:
+        await update.message.reply_text("Usage: /log <habit_id(s)>  e.g. /log 1 or /log 1,2")
+        return
+    await update.message.reply_text(get_agent().memory.quick_bulk_log_habits(ids, completed=True))
+
+async def cmd_unlog(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    raw = " ".join(ctx.args).strip()
+    ids = get_agent().memory._parse_id_list(raw)
+    if not ids:
+        await update.message.reply_text("Usage: /unlog <habit_id(s)>  e.g. /unlog 1 or /unlog 1,2")
+        return
+    await update.message.reply_text(get_agent().memory.quick_bulk_log_habits(ids, completed=False))
+
+async def cmd_habit_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    name = " ".join(ctx.args).strip()
+    if not name:
+        await update.message.reply_text("Usage: /addhabit <name>  e.g. /addhabit DSA 2h daily")
+        return
+    await update.message.reply_text(get_agent().memory.quick_add_habit(name))
+
+async def cmd_habit_del(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    args = ctx.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("Usage: /delhabit <id>  e.g. /delhabit 3")
+        return
+    await update.message.reply_text(get_agent().memory.quick_delete_habit(int(args[0])))
+
+async def cmd_goals(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_goals_formatted())
+
+async def cmd_goal_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    title = " ".join(ctx.args).strip()
+    if not title:
+        await update.message.reply_text("Usage: /goal <title>  e.g. /goal Master SQL")
+        return
+    g = get_agent().memory.add_goal(title=title, description=title)
+    await update.message.reply_text(f"Goal #{g['id']} '{g['title']}' added!")
+
+async def cmd_goal_complete(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    args = ctx.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("Usage: /donegoal <id>  e.g. /donegoal 1")
+        return
+    await update.message.reply_text(get_agent().memory.quick_complete_goal(int(args[0])))
+
+async def cmd_goal_del(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    args = ctx.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("Usage: /delgoal <id>  e.g. /delgoal 2")
+        return
+    await update.message.reply_text(get_agent().memory.quick_delete_goal(int(args[0])))
+
+async def cmd_projects(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_projects_formatted())
+
+async def cmd_project_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    name = " ".join(ctx.args).strip()
+    if not name:
+        await update.message.reply_text("Usage: /addproj <name>  e.g. /addproj Backend API")
+        return
+    await update.message.reply_text(get_agent().memory.quick_add_project(name))
+
+async def cmd_deadlines(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_deadline_alerts())
+
+async def cmd_streaks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_habit_adaptive_recommendations())
+
+async def cmd_notes(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_notes_formatted())
+
+async def cmd_note_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    raw = " ".join(ctx.args).strip()
+    if not raw:
+        await update.message.reply_text("Usage: /note <title>|<content>  e.g. /note DSA|Sliding window tip")
+        return
+    if "|" in raw:
+        t, c = raw.split("|", 1)
+        res = get_agent().memory.quick_add_note(t.strip(), c.strip())
+    else:
+        res = get_agent().memory.quick_add_note(raw[:40], raw)
+    await update.message.reply_text(res)
+
+async def cmd_note_del(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    args = ctx.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("Usage: /delnote <id>  e.g. /delnote 2")
+        return
+    await update.message.reply_text(get_agent().memory.quick_delete_note(int(args[0])))
+
+async def cmd_review(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    summary = " ".join(ctx.args).strip()
+    if not summary:
+        await update.message.reply_text("Usage: /review <summary>  e.g. /review Studied Trees 2h, solved 2 LeetCode")
+        return
+    get_agent().memory.add_journal_entry(summary=summary)
+    today = datetime.now().strftime("%B %d")
+    await update.message.reply_text(f"Daily review logged for {today}:\n'{summary}'")
+
+async def cmd_memory(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_user_data_summary())
+
+async def cmd_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    raw = " ".join(ctx.args).lower()
+    period = "monthly" if "month" in raw else "weekly"
+    await send_long(update, get_agent().memory.get_analytics_report_formatted(period=period))
+
+async def cmd_weekly(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_analytics_report_formatted(period="weekly"))
+
+async def cmd_monthly(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_analytics_report_formatted(period="monthly"))
+
+async def cmd_notify(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_proactive_notifications_formatted(force=True))
+
+async def cmd_goals_progress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await send_long(update, get_agent().memory.get_goal_progress_visualizations())
+
+# --- Browser, Email, YouTube Command Handlers --------------------------------
+
+async def cmd_web(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    query = " ".join(ctx.args).strip()
+    if not query:
+        await update.message.reply_text("Usage: /web <search query>  e.g. /web Python async tutorial")
+        return
+    await update.message.chat.send_action(action="typing")
+    res = web_search(query, max_results=5)
+    await send_long(update, format_search_results(res))
+
+async def cmd_read(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    url = " ".join(ctx.args).strip()
+    if not url:
+        await update.message.reply_text("Usage: /read <url>  e.g. /read https://example.com")
+        return
+    await update.message.chat.send_action(action="typing")
+    res = read_webpage(url)
+    await send_long(update, format_webpage_result(res))
+
+async def cmd_inbox(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    configured, msg = check_email_configured()
+    if not configured:
+        await update.message.reply_text(f"📧 Email not configured: {msg}\nAdd EMAIL_ADDRESS and EMAIL_APP_PASSWORD to your .env file.")
+        return
+    args = " ".join(ctx.args).lower()
+    unread_only = "unread" in args
+    count = 10
+    for tok in ctx.args:
+        if tok.isdigit():
+            count = int(tok)
+            break
+    await update.message.chat.send_action(action="typing")
+    res = list_emails(count=count, unread_only=unread_only)
+    await send_long(update, format_email_list(res))
+
+async def cmd_email_search(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    query = " ".join(ctx.args).strip()
+    if not query:
+        await update.message.reply_text("Usage: /emailsearch <keyword>  e.g. /emailsearch invoice")
+        return
+    configured, msg = check_email_configured()
+    if not configured:
+        await update.message.reply_text(f"📧 Email not configured: {msg}")
+        return
+    await update.message.chat.send_action(action="typing")
+    res = search_emails(query)
+    if res.get("error"):
+        await update.message.reply_text(f"❌ {res['error']}")
+        return
+    emails = res.get("results", [])
+    if not emails:
+        await update.message.reply_text(f"📭 No emails found matching '{query}'.")
+        return
+    lines = [f"📧 Found {len(emails)} email(s) for '{query}':\n"]
+    for e in emails:
+        lines.append(f"  [{e['id']}] {e.get('subject', '(no subject)')}\n       From: {e.get('from', '')} | {e.get('date', '')}")
+    await send_long(update, "\n".join(lines))
+
+async def cmd_yt_track(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    if len(ctx.args) < 2:
+        await update.message.reply_text("Usage: /yttrack <url> <minutes_watched> [total_minutes]\nExample: /yttrack https://youtu.be/abc 25 60")
+        return
+    url = ctx.args[0]
+    try:
+        watched_min = float(ctx.args[1])
+        total_min = float(ctx.args[2]) if len(ctx.args) >= 3 else None
+    except ValueError:
+        await update.message.reply_text("⚠️ Minutes must be numbers.")
+        return
+    res = track_video_progress(
+        url_or_id=url,
+        watched_seconds=int(watched_min * 60),
+        total_seconds=int(total_min * 60) if total_min else None
+    )
+    if res.get("error"):
+        await update.message.reply_text(f"❌ {res['error']}")
+    else:
+        await send_long(update, format_video_progress(res))
+
