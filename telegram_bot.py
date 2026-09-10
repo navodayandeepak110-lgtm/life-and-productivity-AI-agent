@@ -590,3 +590,24 @@ async def cmd_yt_track(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await send_long(update, format_video_progress(res))
 
+async def cmd_yt_progress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    res = list_all_tracked_videos()
+    await send_long(update, format_all_tracked(res))
+
+async def cmd_yt_playlist(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    url = " ".join(ctx.args).strip()
+    if not url:
+        await update.message.reply_text("Usage: /ytplaylist <playlist_url_or_id>")
+        return
+    await update.message.chat.send_action(action="typing")
+    res = get_playlist_progress(url)
+    await send_long(update, format_playlist_progress(res))
+
+# --- Background Proactive Smart Notifications Worker --------------------------
+
+async def smart_notification_worker(app: Application):
+    
