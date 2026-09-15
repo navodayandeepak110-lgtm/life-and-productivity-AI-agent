@@ -889,3 +889,94 @@ async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.chat.send_action(action="typing")
         await send_long(update, format_playlist_progress(get_playlist_progress(arg)))
         return
+
+    await update.message.chat.send_action(action="typing")
+    try:
+        response = get_agent().chat(text)
+        await send_long(update, response)
+    except Exception as e:
+        logger.error(f"AI error: {e}")
+        await update.message.reply_text(
+            f"AI error: {e}\n\nMake sure OmniRoute is running at http://localhost:20128"
+        )
+
+# --- Error handler ------------------------------------------------------------
+
+async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE):
+    logger.error(f"Telegram error: {ctx.error}", exc_info=ctx.error)
+
+# --- Bot command menu ---------------------------------------------------------
+
+async def post_init(app: Application):
+    commands = [
+        BotCommand("start",       "Start & see morning briefing"),
+        BotCommand("help",        "Show all commands"),
+        BotCommand("today",       "Morning briefing + routine"),
+        BotCommand("radar",       "Priorities & Deadline Radar"),
+        BotCommand("schedule",    "College & study timetable"),
+        BotCommand("cal",         "Weekly visual calendar"),
+        BotCommand("tasks",       "Pending tasks"),
+        BotCommand("done",        "Complete tasks: /done 1,2,3"),
+        BotCommand("add",         "Add task: /add Study due tomorrow"),
+        BotCommand("del",         "Delete task: /del 5 --archive"),
+        BotCommand("prio",        "Set priority: /prio 6 urgent"),
+        BotCommand("due",         "Set deadline: /due 6 next Friday"),
+        BotCommand("cleardone",   "Clean tasks: /cleardone --archive"),
+        BotCommand("archive",     "Move task to archive.json"),
+        BotCommand("archived",    "View archived tasks"),
+        BotCommand("habits",      "Habit tracker & streaks"),
+        BotCommand("log",         "Log habit(s): /log 1,2"),
+        BotCommand("unlog",       "Reset habit: /unlog 1"),
+        BotCommand("goals",       "Active goals"),
+        BotCommand("goal",        "Add goal: /goal Master SQL"),
+        BotCommand("projects",    "Active projects"),
+        BotCommand("deadlines",   "Approaching deadlines"),
+        BotCommand("streaks",     "Habit coaching"),
+        BotCommand("notes",       "Knowledge base"),
+        BotCommand("note",        "Save note: /note DSA|tip"),
+        BotCommand("attachments", "List file attachments"),
+        BotCommand("undo",        "Undo last operation"),
+        BotCommand("export",      "Export JSON backup file"),
+        BotCommand("review",      "Log study review"),
+        BotCommand("memory",      "Full memory snapshot"),
+        BotCommand("report",      "Weekly/Monthly intelligence report"),
+        BotCommand("weekly",      "Weekly analytics & habit score"),
+        BotCommand("monthly",     "Monthly productivity review"),
+        BotCommand("notify",      "Check proactive smart alerts"),
+        BotCommand("goals_progress", "Goal roadmap progress bars"),
+        BotCommand("web",         "Web search: /web query"),
+        BotCommand("read",        "Read webpage: /read url"),
+        BotCommand("inbox",       "View email inbox: /inbox"),
+        BotCommand("emailsearch", "Search emails: /emailsearch query"),
+        BotCommand("yttrack",     "Track YouTube: /yttrack url min"),
+        BotCommand("ytprogress",  "View all YouTube progress"),
+        BotCommand("ytplaylist",  "Playlist progress: /ytplaylist url"),
+    ]
+    await app.bot.set_my_commands(commands)
+    logger.info("Command menu set.")
+
+    # Start background proactive notifications scheduler
+    asyncio.create_task(smart_notification_worker(app))
+
+# --- Main ---------------------------------------------------------------------
+
+def main():
+    print("=" * 60)
+    print("AI Productivity Agent -- Telegram Bot (v3.1)")
+    print("=" * 60)
+    print(f"Allowed user ID : {ALLOWED_USER_ID}")
+    print(f"Bot token       : {BOT_TOKEN[:24]}...")
+    print()
+
+    try:
+        get_agent()
+    except Exception as e:
+        print(f"WARNING: Could not pre-load agent: {e}")
+        print("Make sure OmniRoute is running. Fast commands will still work.\n")
+
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )    
