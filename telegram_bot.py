@@ -610,4 +610,282 @@ async def cmd_yt_playlist(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # --- Background Proactive Smart Notifications Worker --------------------------
 
 async def smart_notification_worker(app: Application):
+    """
+    Background worker running every 60 seconds.
+    Proactively checks for:
+    - Tasks due in <= 2 hours
+    - Habits at risk of streak loss
+    - Weekly review readiness
+    Sends push alerts directly to the authorized user.
+    """
+    logger.info("Smart notifications worker started (running every 60s).")
+    await asyncio.sleep(5)  # initial warmup delay
+    while True:
+        try:
+            agent = get_agent()
+            notifs = agent.memory.check_smart_notifications(force=False)
+            for n in notifs:
+                alert_text = f"🔔 *{n['title']}*\n{n['message']}"
+                logger.info(f"Dispatching proactive alert: {n['title']}")
+                await app.bot.send_message(
+                    chat_id=ALLOWED_USER_ID,
+                    text=alert_text,
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            logger.error(f"Error in smart_notification_worker: {e}")
+        
+        await asyncio.sleep(60)
+
+# --- Free-text & Attachments -> AI ---------------------------------------------
+
+async def handle_attachment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        deny(update)
+        return
     
+    msg = update.message
+    caption = (msg.caption or "").strip()
+    file_obj = None
+    filename = "attachment"
+    content_type = "file"
+
+    if msg.photo:
+        photo = msg.photo[-1]
+        file_obj = await photo.get_file()
+        filename = f"photo_{photo.file_unique_id}.jpg"
+        content_type = "image/jpeg"
+    elif msg.document:
+        doc = msg.document
+        file_obj = await doc.get_file()
+        filename = doc.file_name or f"doc_{doc.file_unique_id}"
+        content_type = doc.mime_type or "document"
+    elif msg.voice:
+        voice = msg.voice
+        file_obj = await voice.get_file()
+        filename = f"voice_{voice.file_unique_id}.ogg"
+        content_type = "audio/ogg"
+
+    if not file_obj:
+        return
+
+    await update.message.chat.send_action(action="typing")
+    try:
+        file_bytes = await file_obj.download_as_bytearray()
+        rec = get_agent().memory.add_attachment(
+            source_path_or_bytes=bytes(file_bytes),
+            filename=filename,
+            description=caption,
+            content_type=content_type
+        )
+        
+        reply = f"📎 Saved attachment #{rec['id']}: '{rec['original_name']}' ({rec['file_size']/1024:.1f} KB)"
+        
+        if caption:
+            prompt = f"[User attached file: {rec['original_name']} (Type: {rec['file_type']})]\n"
+            if rec.get("text_preview"):
+                prompt += f"[File Content Preview: {rec['text_preview'][:800]}...]\n"
+            prompt += f"User message: {caption}"
+            ai_response = get_agent().chat(prompt)
+            await send_long(update, f"{reply}\n\n🤖 Agent:\n{ai_response}")
+        else:
+            await update.message.reply_text(f"{reply}\n💡 Tip: Use /attachments to list your stored files.")
+    except Exception as e:
+        logger.error(f"Attachment error: {e}")
+        await update.message.reply_text(f"❌ Failed to process attachment: {e}")
+
+async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        deny(update)
+        return
+    text = update.message.text.strip()
+    if not text:
+        return
+
+    # Check fast number shortcuts
+    t_lower = text.lower()
+    parts = t_lower.split(maxsplit=1)
+    tok = parts[0]
+    arg = parts[1].strip() if len(parts) > 1 else ""
+
+    a = get_agent()
+
+    if tok in ["43", "help"]:
+        await cmd_help(update, ctx)
+        return
+    elif tok == "1":
+        await send_long(update, a.memory.get_morning_briefing())
+        return
+    elif tok == "2":
+        await send_long(update, a.memory.get_priorities_radar_formatted())
+        return
+    elif tok == "3":
+        await send_long(update, a.memory.get_schedule_formatted())
+        return
+    elif tok == "4":
+        await send_long(update, a.memory.get_calendar_view())
+        return
+    elif tok == "5":
+        await send_long(update, a.memory.get_deadline_alerts())
+        return
+    elif tok == "6":
+        await send_long(update, a.memory.get_habit_adaptive_recommendations())
+        return
+    elif tok == "7":
+        await send_long(update, a.memory.get_user_data_summary())
+        return
+    elif tok == "8":
+        await send_long(update, a.memory.get_tasks_formatted("pending"))
+        return
+    elif tok == "9":
+        await send_long(update, a.memory.get_tasks_formatted("pending") + "\n\n" + a.memory.get_tasks_formatted("completed"))
+        return
+    elif tok == "10" and arg:
+        ids = a.memory._parse_id_list(arg)
+        if ids:
+            await update.message.reply_text(a.memory.quick_complete_tasks(ids))
+            return
+    elif tok == "11" and arg:
+        prio = "urgent" if "urgent" in arg else ("high" if "high" in arg else "medium")
+        await update.message.reply_text(a.memory.quick_add_task(title=arg, priority=prio))
+        return
+    elif tok == "12" and arg:
+        do_archive = "--archive" in arg or "-a" in arg
+        ids = a.memory._parse_id_list(arg.replace("--archive", "").replace("-a", ""))
+        if ids:
+            await update.message.reply_text(a.memory.quick_delete_tasks(ids, archive=do_archive))
+            return
+    elif tok == "15":
+        await update.message.reply_text(a.memory.quick_clear_completed_tasks(archive="--archive" in arg))
+        return
+    elif tok == "17":
+        await send_long(update, a.memory.get_archived_tasks_formatted())
+        return
+    elif tok == "18":
+        await send_long(update, a.memory.get_habits_formatted())
+        return
+    elif tok == "19" and arg:
+        ids = a.memory._parse_id_list(arg)
+        if ids:
+            await update.message.reply_text(a.memory.quick_bulk_log_habits(ids, completed=True))
+            return
+    elif tok == "20" and arg:
+        ids = a.memory._parse_id_list(arg)
+        if ids:
+            await update.message.reply_text(a.memory.quick_bulk_log_habits(ids, completed=False))
+            return
+    elif tok == "23":
+        await send_long(update, a.memory.get_goals_formatted())
+        return
+    elif tok == "27":
+        await send_long(update, a.memory.get_projects_formatted())
+        return
+    elif tok == "29":
+        await send_long(update, a.memory.get_notes_formatted())
+        return
+    elif tok == "33":
+        await send_long(update, a.memory.get_attachments_formatted())
+        return
+    elif tok == "37":
+        await update.message.reply_text(a.memory.undo())
+        return
+    elif tok == "39":
+        await send_long(update, a.memory.get_user_data_summary())
+        return
+    elif tok == "44":
+        p = "monthly" if "month" in arg else "weekly"
+        await send_long(update, a.memory.get_analytics_report_formatted(period=p))
+        return
+    elif tok == "45":
+        await send_long(update, a.memory.get_analytics_report_formatted(period="weekly"))
+        return
+    elif tok == "46":
+        await send_long(update, a.memory.get_analytics_report_formatted(period="monthly"))
+        return
+    elif tok == "47":
+        await send_long(update, a.memory.get_proactive_notifications_formatted(force=True))
+        return
+    elif tok == "48":
+        await send_long(update, a.memory.get_goal_progress_visualizations())
+        return
+    elif tok == "49":
+        if not arg:
+            await update.message.reply_text("Usage: 49 <search query> (e.g. 49 Python tutorial)")
+            return
+        await update.message.chat.send_action(action="typing")
+        await send_long(update, format_search_results(web_search(arg, max_results=5)))
+        return
+    elif tok == "50":
+        if not arg:
+            await update.message.reply_text("Usage: 50 <url> (e.g. 50 https://example.com)")
+            return
+        await update.message.chat.send_action(action="typing")
+        await send_long(update, format_webpage_result(read_webpage(arg)))
+        return
+    elif tok == "51":
+        configured, msg = check_email_configured()
+        if not configured:
+            await update.message.reply_text(f"📧 Email not configured: {msg}")
+            return
+        unread_only = "unread" in arg.lower()
+        count = 10
+        for p in arg.split():
+            if p.isdigit():
+                count = int(p)
+                break
+        await update.message.chat.send_action(action="typing")
+        await send_long(update, format_email_list(list_emails(count=count, unread_only=unread_only)))
+        return
+    elif tok == "52":
+        if not arg:
+            await update.message.reply_text("Usage: 52 <keyword> (e.g. 52 invoice)")
+            return
+        configured, msg = check_email_configured()
+        if not configured:
+            await update.message.reply_text(f"📧 Email not configured: {msg}")
+            return
+        await update.message.chat.send_action(action="typing")
+        res = search_emails(arg)
+        if res.get("error"):
+            await update.message.reply_text(f"❌ {res['error']}")
+        else:
+            emails = res.get("results", [])
+            if not emails:
+                await update.message.reply_text(f"📭 No emails found for '{arg}'.")
+            else:
+                lines = [f"📧 Found {len(emails)} email(s) for '{arg}':\n"]
+                for e in emails:
+                    lines.append(f"  [{e['id']}] {e.get('subject', '(no subject)')}\n       From: {e.get('from', '')} | {e.get('date', '')}")
+                await send_long(update, "\n".join(lines))
+        return
+    elif tok == "54":
+        parts_yt = arg.split()
+        if len(parts_yt) < 2:
+            await update.message.reply_text("Usage: 54 <url> <minutes_watched> [total_minutes]")
+            return
+        try:
+            w_min = float(parts_yt[1])
+            t_min = float(parts_yt[2]) if len(parts_yt) >= 3 else None
+        except ValueError:
+            await update.message.reply_text("⚠️ Minutes must be numbers.")
+            return
+        res = track_video_progress(
+            url_or_id=parts_yt[0],
+            watched_seconds=int(w_min * 60),
+            total_seconds=int(t_min * 60) if t_min else None
+        )
+        if res.get("error"):
+            await update.message.reply_text(f"❌ {res['error']}")
+        else:
+            await send_long(update, format_video_progress(res))
+        return
+    elif tok == "55":
+        await send_long(update, format_all_tracked(list_all_tracked_videos()))
+        return
+    elif tok == "56":
+        if not arg:
+            await update.message.reply_text("Usage: 56 <playlist_url_or_id>")
+            return
+        await update.message.chat.send_action(action="typing")
+        await send_long(update, format_playlist_progress(get_playlist_progress(arg)))
+        return
