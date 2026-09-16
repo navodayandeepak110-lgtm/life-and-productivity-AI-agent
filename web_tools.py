@@ -89,3 +89,85 @@ def web_search(query: str, max_results: int = 5) -> dict:
 
         resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results = []
+
+        for result in soup.select(".result"):
+            title_tag = result.select_one(".result__title")
+            snippet_tag = result.select_one(".result__snippet")
+            url_tag = result.select_one(".result__url")
+
+            title = title_tag.get_text(strip=True) if title_tag else ""
+            snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
+            link = url_tag.get_text(strip=True) if url_tag else ""
+
+            # Try to get real href
+            a_tag = result.select_one(".result__title a")
+            if a_tag and a_tag.get("href"):
+                href = a_tag["href"]
+                # DuckDuckGo sometimes wraps URLs
+                if href.startswith("//duckduckgo.com/l/?"):
+                    parsed = urllib.parse.urlparse(href)
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    link = qs.get("uddg", [link])[0]
+                elif href.startswith("http"):
+                    link = href
+
+            if title and (snippet or link):
+                results.append({
+                    "title": title,
+                    "url": link,
+                    "snippet": snippet
+                })
+
+            if len(results) >= max_results:
+                break
+
+        if not results:
+            # Fallback: use DuckDuckGo Instant Answer JSON API
+            api_url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_html=1&skip_disambig=1"
+            api_resp = requests.get(api_url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            data = api_resp.json()
+
+            abstract = data.get("AbstractText", "")
+            abstract_url = data.get("AbstractURL", "")
+            abstract_source = data.get("AbstractSource", "")
+
+            if abstract:
+                results.append({
+                    "title": data.get("Heading", query),
+                    "url": abstract_url,
+                    "snippet": abstract,
+                    "source": abstract_source
+                })
+
+            for topic in data.get("RelatedTopics", [])[:max_results - len(results)]:
+                if isinstance(topic, dict) and "Text" in topic:
+                    results.append({
+                        "title": topic.get("Text", "")[:80],
+                        "url": topic.get("FirstURL", ""),
+                        "snippet": topic.get("Text", "")
+                    })
+
+        return {
+            "query": query,
+            "results": results,
+            "source": "DuckDuckGo",
+            "total_found": len(results)
+        }
+
+    except requests.RequestException as e:
+        return {
+            "query": query,
+            "results": [],
+            "error": f"Network error during search: {str(e)}",
+            "source": "DuckDuckGo"
+        }
+    except Exception as e:
+        return {
+            "query": query,
+            "results": [],
+            "error": f"Search failed: {str(e)}",
+            "source": "DuckDuckGo"
+        }
