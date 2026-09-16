@@ -76,4 +76,16 @@ def web_search(query: str, max_results: int = 5) -> dict:
         dict with keys: 'query', 'results' (list), 'source', 'error' (if any).
     """
     if not WEB_TOOLS_AVAILABLE:
-        
+        return {
+            "error": "Web tools not installed. Run: pip install requests beautifulsoup4",
+            "query": query,
+            "results": []
+        }
+
+    try:
+        # DuckDuckGo HTML search (scraping the results page)
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
