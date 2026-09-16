@@ -171,3 +171,104 @@ def web_search(query: str, max_results: int = 5) -> dict:
             "error": f"Search failed: {str(e)}",
             "source": "DuckDuckGo"
         }
+
+
+# ---------------------------------------------------------------------------
+# Webpage Reader — Clean Text Extraction
+# ---------------------------------------------------------------------------
+
+def read_webpage(url: str, max_chars: int = 8000) -> dict:
+    """
+    Fetch a public webpage and extract its clean readable text.
+
+    Args:
+        url: The URL to read.
+        max_chars: Maximum characters of text to return (default 8000).
+
+    Returns:
+        dict with keys: 'url', 'title', 'text', 'source', 'char_count', 'error'.
+    """
+    if not WEB_TOOLS_AVAILABLE:
+        return {
+            "error": "Web tools not installed. Run: pip install requests beautifulsoup4",
+            "url": url,
+            "text": ""
+        }
+
+    # Validate URL
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp.raise_for_status()
+
+        # Detect encoding
+        if resp.encoding and resp.encoding.lower() not in ("utf-8", "utf8"):
+            try:
+                content = resp.content.decode("utf-8", errors="replace")
+            except Exception:
+                content = resp.text
+        else:
+            content = resp.text
+
+        soup = BeautifulSoup(content, "html.parser")
+
+        # Remove noise tags
+        for tag in soup(_NOISE_TAGS):
+            tag.decompose()
+
+        # Get page title
+        title = ""
+        title_tag = soup.find("title")
+        if title_tag:
+            title = title_tag.get_text(strip=True)
+
+        # Try to find main content first
+        main_content = (
+            soup.find("main") or
+            soup.find("article") or
+            soup.find(id=re.compile(r"content|main|article|post", re.I)) or
+            soup.find(class_=re.compile(r"content|main|article|post|body", re.I)) or
+            soup.body or
+            soup
+        )
+
+        # Extract text with paragraph breaks
+        lines = []
+        for element in main_content.find_all(["p", "h1", "h2", "h3", "h4", "h5", "li", "td", "th"]):
+            text = element.get_text(separator=" ", strip=True)
+            if text and len(text) > 20:  # Skip tiny fragments
+                lines.append(text)
+
+        raw_text = "\n\n".join(lines)
+
+        # Fallback to full text if no structured content found
+        if len(raw_text) < 200:
+            raw_text = main_content.get_text(separator="\n", strip=True)
+
+        # Normalize whitespace
+        raw_text = re.sub(r"\n{3,}", "\n\n", raw_text)
+        raw_text = re.sub(r"[ \t]+", " ", raw_text)
+
+        text = raw_text[:max_chars]
+        truncated = len(raw_text) > max_chars
+
+        return {
+            "url": resp.url,  # Final URL after redirects
+            "title": title,
+            "text": text,
+            "char_count": len(text),
+            "truncated": truncated,
+            "source": resp.url
+        }
+
+    except requests.exceptions.Timeout:
+        return {"url": url, "text": "", "error": f"Request timed out after {REQUEST_TIMEOUT}s"}
+    except requests.exceptions.ConnectionError as e:
+        return {"url": url, "text": "", "error": f"Connection error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"url": url, "text": "", "error": f"HTTP error {resp.status_code}: {str(e)}"}
+    except Exception as e:
+        return {"url": url, "text": "", "error": f"Failed to read page: {str(e)}"}
+
