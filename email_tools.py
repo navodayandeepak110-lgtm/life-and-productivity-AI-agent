@@ -93,3 +93,72 @@ def check_email_configured() -> tuple[bool, str]:
         return False, "EMAIL_APP_PASSWORD not set in .env"
     return True, f"Email configured: {cfg['address']} ({cfg['provider']})"
 
+
+# ---------------------------------------------------------------------------
+# IMAP Connection Helper
+# ---------------------------------------------------------------------------
+
+def _imap_connect() -> imaplib.IMAP4_SSL:
+    """Create and return an authenticated IMAP connection."""
+    cfg = _get_email_config()
+    if not cfg["address"] or not cfg["password"]:
+        raise ValueError(
+            "Email not configured. Set EMAIL_ADDRESS and EMAIL_APP_PASSWORD in .env\n"
+            "For Gmail: enable 2FA and generate an App Password at "
+            "https://myaccount.google.com/apppasswords"
+        )
+    mail = imaplib.IMAP4_SSL(cfg["imap_host"], cfg["imap_port"])
+    mail.login(cfg["address"], cfg["password"])
+    return mail
+
+
+# ---------------------------------------------------------------------------
+# Decode Helpers
+# ---------------------------------------------------------------------------
+
+def _decode_header(raw: str) -> str:
+    """Decode MIME-encoded email header (subject, from, etc.)."""
+    if not raw:
+        return ""
+    parts = email.header.decode_header(raw)
+    decoded = []
+    for part, enc in parts:
+        if isinstance(part, bytes):
+            decoded.append(part.decode(enc or "utf-8", errors="replace"))
+        else:
+            decoded.append(str(part))
+    return " ".join(decoded)
+
+
+def _extract_body(msg) -> str:
+    """Extract plain-text body from an email message."""
+    body = ""
+    if msg.is_multipart():
+        for part in msg.walk():
+            ctype = part.get_content_type()
+            disp = str(part.get("Content-Disposition", ""))
+            if ctype == "text/plain" and "attachment" not in disp:
+                try:
+                    charset = part.get_content_charset() or "utf-8"
+                    body = part.get_payload(decode=True).decode(charset, errors="replace")
+                    break
+                except Exception:
+                    continue
+    else:
+        try:
+            charset = msg.get_content_charset() or "utf-8"
+            raw_body = msg.get_payload(decode=True)
+            if raw_body:
+                body = raw_body.decode(charset, errors="replace")
+                # Strip HTML if needed
+                if msg.get_content_type() == "text/html":
+                    body = re.sub(r"<[^>]+>", " ", body)
+                    body = html.unescape(body)
+        except Exception:
+            body = str(msg.get_payload())
+
+    # Normalize whitespace
+    body = re.sub(r"\r\n", "\n", body)
+    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+    return body
+
