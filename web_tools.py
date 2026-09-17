@@ -272,3 +272,45 @@ def read_webpage(url: str, max_chars: int = 8000) -> dict:
     except Exception as e:
         return {"url": url, "text": "", "error": f"Failed to read page: {str(e)}"}
 
+
+# ---------------------------------------------------------------------------
+# Format Helpers (for agent output)
+# ---------------------------------------------------------------------------
+
+def format_search_results(result: dict) -> str:
+    """Format web_search() result dict into a readable string for the agent."""
+    if result.get("error"):
+        return f"🌐 Web Search Error: {result['error']}"
+
+    query = result.get("query", "")
+    results = result.get("results", [])
+    source = result.get("source", "Web")
+
+    if not results:
+        return f"🌐 No results found for: '{query}'\n📡 Source: {source}"
+
+    lines = [f"🌐 Web Search Results for: '{query}' (via {source})\n"]
+    for i, r in enumerate(results, 1):
+        lines.append(f"**{i}. {r.get('title', 'No title')}**")
+        if r.get("url"):
+            lines.append(f"   🔗 {r['url']}")
+        if r.get("snippet"):
+            lines.append(f"   {r['snippet']}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def format_webpage_result(result: dict) -> str:
+    """Format read_webpage() result dict into a readable string for the agent."""
+    if result.get("error"):
+        return f"🌐 Page Read Error: {result['error']}\n🔗 URL: {result.get('url', '')}"
+
+    title = result.get("title", "")
+    url = result.get("source") or result.get("url", "")
+    text = result.get("text", "")
+    truncated = result.get("truncated", False)
+
+    header = f"🌐 **{title}**\n🔗 Source: {url}\n"
+    footer = "\n\n📄 _(Content truncated — page has more text)_" if truncated else ""
+    return header + "\n" + text + footer
