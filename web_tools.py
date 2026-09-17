@@ -314,3 +314,30 @@ def format_webpage_result(result: dict) -> str:
     header = f"🌐 **{title}**\n🔗 Source: {url}\n"
     footer = "\n\n📄 _(Content truncated — page has more text)_" if truncated else ""
     return header + "\n" + text + footer
+
+
+# ---------------------------------------------------------------------------
+# Sensitive Action Confirmation Helper
+# ---------------------------------------------------------------------------
+
+SENSITIVE_ACTIONS = {
+    "login": "🔐 Logging into an account",
+    "submit_form": "📝 Submitting a form",
+    "purchase": "💳 Making a purchase",
+    "post_comment": "💬 Posting a comment or message",
+    "download_file": "📥 Downloading a file",
+    "change_settings": "⚙️ Changing account settings",
+}
+
+
+def describe_sensitive_action(action_type: str, details: str = "") -> str:
+    """
+    Return a human-readable description of a sensitive action requiring confirmation.
+    The agent should always call this before attempting the action.
+    """
+    label = SENSITIVE_ACTIONS.get(action_type, f"⚠️ Sensitive action: {action_type}")
+    msg = f"\n⚠️  CONFIRMATION REQUIRED\n{'='*45}\n{label}"
+    if details:
+        msg += f"\nDetails: {details}"
+    msg += "\n\nDo you want to proceed? (yes/no): "
+    return msg
