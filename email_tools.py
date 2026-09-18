@@ -413,3 +413,47 @@ def send_email(to: str, subject: str, body: str) -> dict:
         return {"success": False, "error": f"SMTP error: {str(e)}"}
     except Exception as e:
         return {"success": False, "error": f"Failed to send email: {str(e)}"}
+
+
+# ---------------------------------------------------------------------------
+# Format Helpers
+# ---------------------------------------------------------------------------
+
+def format_email_list(result: dict) -> str:
+    """Format list_emails() result for readable agent output."""
+    if result.get("error"):
+        return f"📧 Email Error: {result['error']}"
+
+    emails = result.get("emails", [])
+    folder = result.get("folder", "INBOX")
+    total = result.get("total", 0)
+    unread_filter = " (unread only)" if result.get("unread_only") else ""
+
+    if not emails:
+        return f"📭 No emails found in {folder}{unread_filter}."
+
+    lines = [f"📧 {folder}{unread_filter} — {len(emails)} of {total} emails:\n"]
+    for e in emails:
+        lines.append(f"  [{e['id']}] {e.get('subject', '(no subject)')}")
+        lines.append(f"       From: {e.get('from', '')}  |  {e.get('date', '')}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def format_email_content(result: dict) -> str:
+    """Format read_email() result for readable agent output."""
+    if result.get("error"):
+        return f"📧 Email Read Error: {result['error']}"
+
+    lines = [
+        f"📧 Email #{result.get('id', '')}",
+        f"{'='*50}",
+        f"From:    {result.get('from', '')}",
+        f"To:      {result.get('to', '')}",
+        f"Subject: {result.get('subject', '')}",
+        f"Date:    {result.get('date', '')}",
+        f"{'─'*50}",
+        result.get("body", "(no body)"),
+    ]
+    return "\n".join(lines)
