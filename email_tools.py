@@ -317,3 +317,99 @@ def search_emails(query: str, folder: str = "INBOX", max_results: int = 10) -> d
     except Exception as e:
         return {"results": [], "error": f"Search failed: {str(e)}"}
 
+
+def create_draft(to: str, subject: str, body: str) -> dict:
+    """
+    Build an email draft for review. Does NOT send — just returns the preview.
+
+    Args:
+        to: Recipient email address.
+        subject: Email subject line.
+        body: Email body text.
+
+    Returns:
+        dict with 'draft' details and a human-readable preview.
+    """
+    cfg = _get_email_config()
+    from_addr = cfg["address"]
+
+    if not from_addr:
+        return {"error": "EMAIL_ADDRESS not configured in .env"}
+
+    draft = {
+        "from": from_addr,
+        "to": to,
+        "subject": subject,
+        "body": body,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "status": "draft_pending_approval",
+    }
+
+    preview = (
+        f"\n📧 EMAIL DRAFT — REVIEW BEFORE SENDING\n"
+        f"{'='*50}\n"
+        f"  From:    {from_addr}\n"
+        f"  To:      {to}\n"
+        f"  Subject: {subject}\n"
+        f"{'─'*50}\n"
+        f"{body}\n"
+        f"{'='*50}\n"
+        f"⚠️  Please confirm: Reply 'yes' to send, 'no' to cancel."
+    )
+
+    draft["preview"] = preview
+    return draft
+
+
+def send_email(to: str, subject: str, body: str) -> dict:
+    """
+    Send an email via SMTP. Should only be called AFTER user explicitly confirms.
+
+    Args:
+        to: Recipient address.
+        subject: Subject line.
+        body: Email body.
+
+    Returns:
+        dict with 'success' bool and status message.
+    """
+    cfg = _get_email_config()
+    from_addr = cfg["address"]
+    password = cfg["password"]
+
+    if not from_addr or not password:
+        return {"success": False, "error": "Email credentials not configured in .env"}
+
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = from_addr
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        with smtplib.SMTP(cfg["smtp_host"], cfg["smtp_port"]) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(from_addr, password)
+            server.sendmail(from_addr, [to], msg.as_string())
+
+        return {
+            "success": True,
+            "message": f"✅ Email sent successfully to {to} | Subject: '{subject}'",
+            "from": from_addr,
+            "to": to,
+            "subject": subject,
+        }
+
+    except smtplib.SMTPAuthenticationError:
+        return {
+            "success": False,
+            "error": (
+                "SMTP authentication failed. Check your App Password.\n"
+                "Gmail: https://myaccount.google.com/apppasswords"
+            )
+        }
+    except smtplib.SMTPException as e:
+        return {"success": False, "error": f"SMTP error: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "error": f"Failed to send email: {str(e)}"}
