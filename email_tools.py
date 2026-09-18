@@ -264,3 +264,56 @@ def read_email(email_id: str, folder: str = "INBOX") -> dict:
     except Exception as e:
         return {"error": f"Failed to read email: {str(e)}"}
 
+
+def search_emails(query: str, folder: str = "INBOX", max_results: int = 10) -> dict:
+    """
+    Search emails by keyword (searches subject and body text).
+
+    Args:
+        query: Search keyword or phrase.
+        folder: Folder to search in (default: 'INBOX').
+        max_results: Maximum number of results (default: 10).
+
+    Returns:
+        dict with 'results' list and query info.
+    """
+    try:
+        mail = _imap_connect()
+        mail.select(f'"{folder}"')
+
+        # IMAP search (subject + body text)
+        encoded_query = query.encode("utf-8")
+        _, subject_ids = mail.search("UTF-8", f'(SUBJECT "{query}")')
+        _, body_ids = mail.search("UTF-8", f'(BODY "{query}")')
+
+        all_ids_set = set()
+        for id_list in [subject_ids[0].split(), body_ids[0].split()]:
+            all_ids_set.update(id_list)
+
+        if not all_ids_set:
+            mail.logout()
+            return {"results": [], "query": query, "total": 0}
+
+        recent_ids = sorted(all_ids_set, reverse=True)[:max_results]
+
+        results = []
+        for uid in recent_ids:
+            _, data = mail.fetch(uid, "(BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE)])")
+            if data and data[0]:
+                raw_headers = data[0][1]
+                msg = email.message_from_bytes(raw_headers)
+                results.append({
+                    "id": uid.decode(),
+                    "from": _decode_header(msg.get("From", "")),
+                    "subject": _decode_header(msg.get("Subject", "(No subject)")),
+                    "date": msg.get("Date", ""),
+                })
+
+        mail.logout()
+        return {"results": results, "query": query, "total": len(results)}
+
+    except imaplib.IMAP4.error as e:
+        return {"results": [], "error": f"IMAP search error: {str(e)}"}
+    except Exception as e:
+        return {"results": [], "error": f"Search failed: {str(e)}"}
+
