@@ -162,3 +162,105 @@ def _extract_body(msg) -> str:
     body = re.sub(r"\n{3,}", "\n\n", body).strip()
     return body
 
+
+# ---------------------------------------------------------------------------
+# Public Functions
+# ---------------------------------------------------------------------------
+
+def list_emails(folder: str = "INBOX", count: int = 10, unread_only: bool = False) -> dict:
+    """
+    Fetch a list of recent emails from a folder.
+
+    Args:
+        folder: Mailbox folder name (default: 'INBOX').
+        count: Number of emails to return (default: 10, max: 50).
+        unread_only: If True, return only unread emails.
+
+    Returns:
+        dict with 'emails' list and metadata.
+    """
+    count = min(count, 50)
+    try:
+        mail = _imap_connect()
+        mail.select(f'"{folder}"')
+
+        search_criteria = "(UNSEEN)" if unread_only else "ALL"
+        _, message_ids = mail.search(None, search_criteria)
+
+        ids = message_ids[0].split()
+        if not ids:
+            mail.logout()
+            return {"emails": [], "folder": folder, "total": 0}
+
+        # Get the most recent `count` emails
+        recent_ids = ids[-count:][::-1]
+
+        emails = []
+        for uid in recent_ids:
+            _, data = mail.fetch(uid, "(BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE)])")
+            if data and data[0]:
+                raw_headers = data[0][1]
+                msg = email.message_from_bytes(raw_headers)
+                emails.append({
+                    "id": uid.decode(),
+                    "from": _decode_header(msg.get("From", "")),
+                    "to": _decode_header(msg.get("To", "")),
+                    "subject": _decode_header(msg.get("Subject", "(No subject)")),
+                    "date": msg.get("Date", ""),
+                })
+
+        mail.logout()
+        return {
+            "emails": emails,
+            "folder": folder,
+            "total": len(ids),
+            "showing": len(emails),
+            "unread_only": unread_only,
+        }
+
+    except imaplib.IMAP4.error as e:
+        return {"emails": [], "error": f"IMAP error: {str(e)} — Check your App Password and IMAP settings."}
+    except Exception as e:
+        return {"emails": [], "error": f"Failed to list emails: {str(e)}"}
+
+
+def read_email(email_id: str, folder: str = "INBOX") -> dict:
+    """
+    Read the full content of a specific email by its ID.
+
+    Args:
+        email_id: Email ID string (from list_emails).
+        folder: Folder containing the email.
+
+    Returns:
+        dict with 'from', 'to', 'subject', 'date', 'body'.
+    """
+    try:
+        mail = _imap_connect()
+        mail.select(f'"{folder}"')
+
+        _, data = mail.fetch(email_id.encode(), "(RFC822)")
+        if not data or not data[0]:
+            mail.logout()
+            return {"error": f"Email #{email_id} not found in {folder}"}
+
+        raw_email = data[0][1]
+        msg = email.message_from_bytes(raw_email)
+
+        result = {
+            "id": email_id,
+            "from": _decode_header(msg.get("From", "")),
+            "to": _decode_header(msg.get("To", "")),
+            "subject": _decode_header(msg.get("Subject", "(No subject)")),
+            "date": msg.get("Date", ""),
+            "body": _extract_body(msg),
+        }
+
+        mail.logout()
+        return result
+
+    except imaplib.IMAP4.error as e:
+        return {"error": f"IMAP error: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Failed to read email: {str(e)}"}
+
