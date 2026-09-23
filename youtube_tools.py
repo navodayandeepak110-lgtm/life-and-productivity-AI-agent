@@ -182,3 +182,92 @@ def get_video_info(url_or_id: str) -> dict:
     except Exception as e:
         return {"error": f"Failed to get video info: {str(e)}"}
 
+
+def get_playlist_info(url_or_id: str) -> dict:
+    """
+    Fetch all videos in a YouTube playlist.
+
+    Args:
+        url_or_id: Playlist URL or playlist ID.
+
+    Returns:
+        dict with playlist metadata and list of videos.
+    """
+    available, msg = check_youtube_api_available()
+    if not available:
+        return {"error": msg}
+
+    playlist_id = extract_playlist_id(url_or_id)
+    if not playlist_id:
+        return {"error": f"Could not extract playlist ID from: '{url_or_id}'"}
+
+    try:
+        # Get playlist metadata
+        pl_resp = requests.get(
+            f"{YOUTUBE_API_BASE}/playlists",
+            params={
+                "part": "snippet,contentDetails",
+                "id": playlist_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        pl_resp.raise_for_status()
+        pl_data = pl_resp.json()
+        pl_items = pl_data.get("items", [])
+
+        pl_title = pl_items[0]["snippet"]["title"] if pl_items else "Unknown Playlist"
+        pl_channel = pl_items[0]["snippet"].get("channelTitle", "") if pl_items else ""
+
+        # Get all video IDs in playlist (paginated)
+        videos = []
+        next_page = None
+
+        while True:
+            params = {
+                "part": "snippet,contentDetails",
+                "playlistId": playlist_id,
+                "maxResults": 50,
+                "key": YOUTUBE_API_KEY,
+            }
+            if next_page:
+                params["pageToken"] = next_page
+
+            items_resp = requests.get(
+                f"{YOUTUBE_API_BASE}/playlistItems",
+                params=params,
+                timeout=REQUEST_TIMEOUT,
+            )
+            items_resp.raise_for_status()
+            items_data = items_resp.json()
+
+            for item in items_data.get("items", []):
+                snippet = item.get("snippet", {})
+                resource = snippet.get("resourceId", {})
+                vid_id = resource.get("videoId", "")
+                if vid_id:
+                    videos.append({
+                        "position": snippet.get("position", len(videos)) + 1,
+                        "video_id": vid_id,
+                        "title": snippet.get("title", ""),
+                        "url": f"https://www.youtube.com/watch?v={vid_id}",
+                    })
+
+            next_page = items_data.get("nextPageToken")
+            if not next_page:
+                break
+
+        return {
+            "playlist_id": playlist_id,
+            "playlist_title": pl_title,
+            "channel": pl_channel,
+            "total_videos": len(videos),
+            "videos": videos,
+            "playlist_url": f"https://www.youtube.com/playlist?list={playlist_id}",
+        }
+
+    except requests.RequestException as e:
+        return {"error": f"API request failed: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Failed to get playlist: {str(e)}"}
+
