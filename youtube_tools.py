@@ -117,3 +117,68 @@ def _seconds_to_human(seconds: int) -> str:
         return f"{h}:{m:02d}:{s:02d}"
     return f"{m}:{s:02d}"
 
+
+# ---------------------------------------------------------------------------
+# YouTube API Calls
+# ---------------------------------------------------------------------------
+
+def get_video_info(url_or_id: str) -> dict:
+    """
+    Fetch video metadata: title, duration, channel, description snippet.
+
+    Args:
+        url_or_id: YouTube video URL or video ID.
+
+    Returns:
+        dict with video info or 'error'.
+    """
+    available, msg = check_youtube_api_available()
+    if not available:
+        return {"error": msg}
+
+    video_id = extract_video_id(url_or_id)
+    if not video_id:
+        return {"error": f"Could not extract video ID from: '{url_or_id}'"}
+
+    try:
+        resp = requests.get(
+            f"{YOUTUBE_API_BASE}/videos",
+            params={
+                "part": "snippet,contentDetails,statistics",
+                "id": video_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        items = data.get("items", [])
+        if not items:
+            return {"error": f"Video not found: {video_id}"}
+
+        item = items[0]
+        snippet = item.get("snippet", {})
+        details = item.get("contentDetails", {})
+        stats = item.get("statistics", {})
+
+        duration_iso = details.get("duration", "PT0S")
+        duration_sec = _iso_duration_to_seconds(duration_iso)
+
+        return {
+            "video_id": video_id,
+            "title": snippet.get("title", ""),
+            "channel": snippet.get("channelTitle", ""),
+            "published_at": snippet.get("publishedAt", ""),
+            "description": snippet.get("description", "")[:300],
+            "duration_seconds": duration_sec,
+            "duration_human": _seconds_to_human(duration_sec),
+            "view_count": stats.get("viewCount", "N/A"),
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+        }
+
+    except requests.RequestException as e:
+        return {"error": f"API request failed: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Failed to get video info: {str(e)}"}
+
