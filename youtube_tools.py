@@ -271,3 +271,118 @@ def get_playlist_info(url_or_id: str) -> dict:
     except Exception as e:
         return {"error": f"Failed to get playlist: {str(e)}"}
 
+
+# ---------------------------------------------------------------------------
+# Local Progress Tracking (stored in agent_data/youtube_progress.json)
+# ---------------------------------------------------------------------------
+
+def _load_progress() -> dict:
+    """Load progress data from local JSON file."""
+    PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if PROGRESS_FILE.exists():
+        try:
+            with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"videos": {}, "playlists": {}}
+
+
+def _save_progress(data: dict):
+    """Save progress data to local JSON file."""
+    PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def track_video_progress(
+    url_or_id: str,
+    watched_seconds: int,
+    total_seconds: Optional[int] = None,
+    title: Optional[str] = None,
+    playlist_id: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> dict:
+    """
+    Record manually entered watch progress for a video.
+
+    Args:
+        url_or_id: YouTube video URL or ID.
+        watched_seconds: How many seconds of the video you've watched.
+        total_seconds: Total video duration in seconds (fetched from API if not provided).
+        title: Video title (optional, fetched from API if not provided).
+        playlist_id: Associated playlist ID (optional).
+        notes: Any notes about this session.
+
+    Returns:
+        dict with updated progress info.
+    """
+    video_id = extract_video_id(url_or_id)
+    if not video_id:
+        return {"error": f"Could not extract video ID from: '{url_or_id}'"}
+
+    # Try to fetch metadata if title/duration not provided
+    if not title or not total_seconds:
+        info = get_video_info(video_id)
+        if "error" not in info:
+            title = title or info.get("title", "")
+            total_seconds = total_seconds or info.get("duration_seconds", 0)
+
+    progress_data = _load_progress()
+
+    existing = progress_data["videos"].get(video_id, {})
+    watched_seconds = max(0, watched_seconds)
+    if total_seconds:
+        watched_seconds = min(watched_seconds, total_seconds)
+
+    percentage = round((watched_seconds / total_seconds * 100), 1) if total_seconds else None
+    completed = percentage is not None and percentage >= 95.0
+
+    entry = {
+        "video_id": video_id,
+        "title": title or "Unknown",
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "watched_seconds": watched_seconds,
+        "watched_human": _seconds_to_human(watched_seconds),
+        "total_seconds": total_seconds or existing.get("total_seconds"),
+        "total_human": _seconds_to_human(total_seconds) if total_seconds else existing.get("total_human", "?"),
+        "percentage": percentage,
+        "completed": completed,
+        "playlist_id": playlist_id or existing.get("playlist_id"),
+        "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "notes": notes or "",
+        "sessions": existing.get("sessions", 0) + 1,
+    }
+
+    progress_data["videos"][video_id] = entry
+    _save_progress(progress_data)
+
+    return entry
+
+
+def get_video_progress(url_or_id: str) -> dict:
+    """
+    Get stored progress for a specific video.
+
+    Args:
+        url_or_id: YouTube video URL or ID.
+
+    Returns:
+        dict with progress details or 'error' if not tracked.
+    """
+    video_id = extract_video_id(url_or_id)
+    if not video_id:
+        return {"error": f"Could not extract video ID from: '{url_or_id}'"}
+
+    data = _load_progress()
+    entry = data["videos"].get(video_id)
+
+    if not entry:
+        return {
+            "video_id": video_id,
+            "tracked": False,
+            "message": f"No progress recorded for video {video_id}. Use track_youtube_video to log progress."
+        }
+
+    return {**entry, "tracked": True}
+
