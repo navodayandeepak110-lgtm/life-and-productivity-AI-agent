@@ -463,3 +463,90 @@ def get_playlist_progress(url_or_id: str) -> dict:
         "videos": report_videos,
     }
 
+
+# ---------------------------------------------------------------------------
+# Format Helpers
+# ---------------------------------------------------------------------------
+
+def format_video_progress(entry: dict) -> str:
+    """Format a single video's progress for agent output."""
+    if entry.get("error"):
+        return f"📺 YouTube Error: {entry['error']}"
+
+    if not entry.get("tracked"):
+        return f"📺 Video not yet tracked.\n{entry.get('message', '')}"
+
+    pct = entry.get("percentage")
+    pct_bar = ""
+    if pct is not None:
+        filled = int(pct / 5)
+        pct_bar = f"[{'█' * filled}{'░' * (20 - filled)}] {pct}%"
+
+    status = "✅ Completed" if entry.get("completed") else "▶️ In Progress"
+
+    lines = [
+        f"📺 {entry.get('title', 'Video')}",
+        f"🔗 {entry.get('url', '')}",
+        f"Status:   {status}",
+        f"Watched:  {entry.get('watched_human', '?')} / {entry.get('total_human', '?')}",
+    ]
+    if pct_bar:
+        lines.append(f"Progress: {pct_bar}")
+    lines.append(f"Updated:  {entry.get('last_updated', 'N/A')}")
+    if entry.get("notes"):
+        lines.append(f"Notes:    {entry['notes']}")
+
+    return "\n".join(lines)
+
+
+def format_all_tracked(result: dict) -> str:
+    """Format list_all_tracked_videos() for agent output."""
+    videos = result.get("videos", [])
+    if not videos:
+        return "📺 No YouTube videos are being tracked yet.\nUse /yt-track <url> <minutes> to start tracking."
+
+    total = result.get("total_tracked", 0)
+    completed = result.get("completed", 0)
+    in_progress = result.get("in_progress", 0)
+
+    lines = [
+        f"📺 YouTube Progress — {total} tracked | ✅ {completed} completed | ▶️ {in_progress} in progress\n"
+    ]
+
+    for v in videos:
+        pct = v.get("percentage")
+        pct_str = f" ({pct}%)" if pct is not None else ""
+        status = "✅" if v.get("completed") else "▶️"
+        lines.append(f"  {status} [{v['video_id']}] {v.get('title', 'Unknown')[:60]}")
+        lines.append(f"       {v.get('watched_human', '?')} / {v.get('total_human', '?')}{pct_str}  |  Last: {v.get('last_updated', 'N/A')}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def format_playlist_progress(result: dict) -> str:
+    """Format get_playlist_progress() for agent output."""
+    if result.get("error"):
+        return f"📺 Playlist Error: {result['error']}"
+
+    title = result.get("playlist_title", "Playlist")
+    total = result.get("total_videos", 0)
+    completed = result.get("completed_videos", 0)
+    pct = result.get("overall_percentage", 0)
+
+    filled = int(pct / 5)
+    pct_bar = f"[{'█' * filled}{'░' * (20 - filled)}] {pct}%"
+
+    lines = [
+        f"📋 Playlist: {title}",
+        f"🔗 {result.get('playlist_url', '')}",
+        f"Overall: {pct_bar}  ({completed}/{total} videos completed)\n",
+    ]
+
+    for v in result.get("videos", []):
+        pct_v = v.get("percentage")
+        pct_str = f" {pct_v}%" if pct_v is not None else " —"
+        status = "✅" if v.get("completed") else ("▶️" if v.get("watched_human", "0:00") != "0:00" else "⬜")
+        lines.append(f"  {status} {v['position']:>2}. {v.get('title', '')[:55]}{pct_str}")
+
+    return "\n".join(lines)
