@@ -386,3 +386,80 @@ def get_video_progress(url_or_id: str) -> dict:
 
     return {**entry, "tracked": True}
 
+
+def list_all_tracked_videos() -> dict:
+    """
+    List all tracked YouTube videos with progress summaries.
+
+    Returns:
+        dict with 'videos' list sorted by last_updated.
+    """
+    data = _load_progress()
+    videos = list(data["videos"].values())
+    videos.sort(key=lambda x: x.get("last_updated", ""), reverse=True)
+    return {
+        "videos": videos,
+        "total_tracked": len(videos),
+        "completed": sum(1 for v in videos if v.get("completed")),
+        "in_progress": sum(1 for v in videos if not v.get("completed") and v.get("watched_seconds", 0) > 0),
+    }
+
+
+def get_playlist_progress(url_or_id: str) -> dict:
+    """
+    Get progress summary for all tracked videos in a playlist.
+
+    Args:
+        url_or_id: Playlist URL or ID.
+
+    Returns:
+        dict with per-video progress and overall completion percentage.
+    """
+    playlist_id = extract_playlist_id(url_or_id)
+    if not playlist_id:
+        return {"error": f"Could not extract playlist ID from: '{url_or_id}'"}
+
+    # Fetch playlist structure from API
+    pl_info = get_playlist_info(playlist_id)
+    if "error" in pl_info:
+        return pl_info
+
+    # Match with local progress data
+    data = _load_progress()
+    tracked = data["videos"]
+
+    report_videos = []
+    completed_count = 0
+
+    for video in pl_info["videos"]:
+        vid_id = video["video_id"]
+        progress = tracked.get(vid_id, {})
+        is_completed = progress.get("completed", False)
+        if is_completed:
+            completed_count += 1
+
+        report_videos.append({
+            "position": video["position"],
+            "video_id": vid_id,
+            "title": video["title"],
+            "url": video["url"],
+            "watched_human": progress.get("watched_human", "0:00"),
+            "total_human": progress.get("total_human", "?"),
+            "percentage": progress.get("percentage"),
+            "completed": is_completed,
+            "last_updated": progress.get("last_updated", "Not started"),
+        })
+
+    total = pl_info["total_videos"]
+    overall_pct = round(completed_count / total * 100, 1) if total else 0
+
+    return {
+        "playlist_id": playlist_id,
+        "playlist_title": pl_info["playlist_title"],
+        "playlist_url": pl_info["playlist_url"],
+        "total_videos": total,
+        "completed_videos": completed_count,
+        "overall_percentage": overall_pct,
+        "videos": report_videos,
+    }
+
