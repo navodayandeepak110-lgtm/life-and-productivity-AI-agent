@@ -70,3 +70,26 @@ def run_tests():
         t_reloaded = next((t for t in mem_reloaded.tasks if t["id"] == target_id), None)
         assert t_reloaded["status"] == "completed"
         print(f"✅ TEST 3 PASSED: ID-based task completion & persistence verified for Task #{target_id}.")
+
+        # TEST 4: Task CRUD (Add, Update, Search, Delete)
+        new_task = mem.add_task(
+            title="Test Task Priority",
+            description="Testing memory",
+            priority="urgent",
+            deadline="Tomorrow"
+        )
+        assert new_task["id"] > 11
+        assert new_task["priority"] == "urgent"
+
+        updated_task = mem.update_task(new_task["id"], priority="low", title="Updated Test Title")
+        assert updated_task["priority"] == "low"
+        assert updated_task["title"] == "Updated Test Title"
+
+        search_res = mem.search_tasks(query="Updated Test")
+        assert len(search_res) == 1
+        assert search_res[0]["id"] == new_task["id"]
+
+        del_ok = mem.delete_task(new_task["id"])
+        assert del_ok is True
+        assert next((t for t in mem.tasks if t["id"] == new_task["id"]), None) is None
+        print("✅ TEST 4 PASSED: Task CRUD and search verified.")
