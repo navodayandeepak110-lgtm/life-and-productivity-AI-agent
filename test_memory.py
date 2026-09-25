@@ -52,3 +52,21 @@ def run_tests():
         assert "## TASKS" in summary, "Tasks missing from summary"
         assert "## HABITS TRACKER" in summary, "Habits tracker missing from summary"
         print("✅ TEST 2 PASSED: Context and Profile properly injected into Prompt Summary.")
+
+        # TEST 3: Exact ID matching in Task Completion (Fixing the indexing bug)
+        # Find any pending task from the dataset
+        pending_task = next((t for t in mem.tasks if t.get("status") == "pending"), None)
+        assert pending_task is not None, "No pending tasks available for completion test"
+        target_id = pending_task["id"]
+
+        completed_t = mem.complete_task(target_id)
+        assert completed_t is not None
+        assert completed_t["id"] == target_id
+        assert completed_t["status"] == "completed"
+        assert "completed_at" in completed_t
+
+        # Reload memory to verify disk persistence
+        mem_reloaded = MemoryManager(data_dir=str(test_dir))
+        t_reloaded = next((t for t in mem_reloaded.tasks if t["id"] == target_id), None)
+        assert t_reloaded["status"] == "completed"
+        print(f"✅ TEST 3 PASSED: ID-based task completion & persistence verified for Task #{target_id}.")
