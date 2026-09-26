@@ -131,3 +131,50 @@ def run_tests():
         global_res = mem.search_all_memory("GATE")
         assert "goals" in global_res or "tasks" in global_res or "context" in global_res
         print("✅ TEST 8 PASSED: Universal multi-store search verified.")
+
+        # TEST 9: Session Persistence & Rolling History
+        fake_history = [
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi Deepak! How can I help you today?"},
+            {"role": "user", "content": "What are my priorities today?"},
+            {"role": "assistant", "content": "Your top priority is Java OOP revision."}
+        ]
+        mem.save_session_history(fake_history)
+
+        mem_session_reload = MemoryManager(data_dir=str(test_dir))
+        latest_msgs = mem_session_reload.load_latest_session()
+        assert len(latest_msgs) == 4
+        assert latest_msgs[0]["content"] == "Hello!"
+        print("✅ TEST 9 PASSED: Session history persistence verified.")
+
+        # TEST 10: Proactive Morning Briefing & Fast CLI Formatters
+        briefing = mem.get_morning_briefing()
+        assert any(g in briefing.upper() for g in ["GOOD MORNING", "GOOD AFTERNOON", "GOOD EVENING"]) or "BRIEFING" in briefing.upper()
+        assert "TOP PRIORITIES" in briefing.upper()
+        assert "HABITS" in briefing.upper()
+        tasks_fmt = mem.get_tasks_formatted("pending")
+        assert "PENDING TASKS" in tasks_fmt
+        habits_fmt = mem.get_habits_formatted()
+        assert "HABIT TRACKER" in habits_fmt
+        print("✅ TEST 10 PASSED: Proactive Morning Briefing & Fast CLI formatters verified.")
+
+        # TEST 11: Smart Dynamic Context Pruning (Token Optimization)
+        pruned_tasks = mem.get_pruned_context_summary("what are my tasks for today?")
+        assert "PENDING TASKS" in pruned_tasks
+        pruned_habits = mem.get_pruned_context_summary("show my habits streak")
+        assert "HABITS" in pruned_habits
+        pruned_notes = mem.get_pruned_context_summary("show youtube playlist links")
+        assert "RELEVANT NOTES" in pruned_notes
+        print("✅ TEST 11 PASSED: Smart Dynamic Context Pruning verified.")
+
+        print("\n" + "=" * 60)
+        print("🎉 ALL 11 MEMORY ENGINE TESTS PASSED SUCCESSFULLY!")
+        print("=" * 60)
+
+    finally:
+        if test_dir.exists():
+            shutil.rmtree(test_dir)
+
+
+if __name__ == "__main__":
+    run_tests()
