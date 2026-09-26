@@ -51,3 +51,15 @@ class TestWebTools(unittest.TestCase):
         self.assertIn("CONFIRMATION REQUIRED", msg)
         self.assertIn("Logging into an account", msg)
         self.assertIn("Logging into GitHub", msg)
+
+    def test_search_results_formatting(self):
+        sample = {
+            "query": "python tutorial",
+            "source": "DuckDuckGo",
+            "results": [
+                {"title": "Python Basics", "url": "https://python.org", "snippet": "Learn python"}
+            ]
+        }
+        text = format_search_results(sample)
+        self.assertIn("Python Basics", text)
+        self.assertIn("https://python.org", text)
