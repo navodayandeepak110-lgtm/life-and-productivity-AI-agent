@@ -93,3 +93,41 @@ def run_tests():
         assert del_ok is True
         assert next((t for t in mem.tasks if t["id"] == new_task["id"]), None) is None
         print("✅ TEST 4 PASSED: Task CRUD and search verified.")
+
+        # TEST 5: Habit tracking & streak with exact ID
+        habit_1 = mem.habits[0]
+        initial_streak = habit_1.get("streak", 0)
+        logged_habit = mem.log_habit(habit_1["id"], completed=True)
+        assert logged_habit["streak"] == initial_streak + 1
+        print("✅ TEST 5 PASSED: Habit streak and logging verified.")
+
+        # TEST 6: Episodic Memory (Daily Journal)
+        entry = mem.add_journal_entry(
+            summary="Studied Java Collections & solved 3 LeetCode problems",
+            wins=["Solved Two Sum in O(N)", "Understood HashMap internals"],
+            blockers="Felt tired in the evening",
+            hours_studied=5.5,
+            focus_tomorrow="Revise Multithreading"
+        )
+        assert entry["id"] >= 1
+        assert len(mem.get_recent_journal(7)) >= 1
+        print("✅ TEST 6 PASSED: Episodic daily journal logging & retrieval verified.")
+
+        # TEST 7: Semantic Memory / Notes
+        note = mem.save_note(
+            title="Java HashMap Time Complexity",
+            content="get() and put() are O(1) average time, O(n) worst case with collisions, reduced to O(log n) with red-black trees in Java 8+.",
+            category="java",
+            tags=["java", "collections", "dsa"]
+        )
+        assert note["id"] >= 1
+
+        found_notes = mem.search_notes(query="red-black", tag="java")
+        assert len(found_notes) == 1
+        assert "Java HashMap" in found_notes[0]["title"]
+        print("✅ TEST 7 PASSED: Knowledge Base notes & search verified.")
+
+        # TEST 8: Universal Memory Search
+        global_res = mem.search_all_memory("GATE")
+        assert "goals" in global_res or "tasks" in global_res or "context" in global_res
+        print("✅ TEST 8 PASSED: Universal multi-store search verified.")
