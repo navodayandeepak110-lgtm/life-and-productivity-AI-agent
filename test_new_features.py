@@ -86,3 +86,8 @@ class TestEmailTools(unittest.TestCase):
         res = create_draft("test@example.com", "Hello", "Body content")
         if not os.getenv("EMAIL_ADDRESS"):
             self.assertIn("error", res)
+
+    def test_header_decoding(self):
+        self.assertEqual(_decode_header("Simple Subject"), "Simple Subject")
+        self.assertEqual(_decode_header(""), "")
+
