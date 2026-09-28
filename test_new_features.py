@@ -74,3 +74,15 @@ class TestWebTools(unittest.TestCase):
         text = format_webpage_result(sample)
         self.assertIn("Example Page", text)
         self.assertIn("This is example body text.", text)
+
+
+class TestEmailTools(unittest.TestCase):
+    def test_email_config_unconfigured(self):
+        is_configured, msg = check_email_configured()
+        if not os.getenv("EMAIL_ADDRESS") or not os.getenv("EMAIL_APP_PASSWORD"):
+            self.assertFalse(is_configured)
+
+    def test_create_draft_unconfigured_fails_safely(self):
+        res = create_draft("test@example.com", "Hello", "Body content")
+        if not os.getenv("EMAIL_ADDRESS"):
+            self.assertIn("error", res)
