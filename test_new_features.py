@@ -112,4 +112,40 @@ class TestYouTubeTools(unittest.TestCase):
         ]
         for url, expected in urls:
             self.assertEqual(extract_playlist_id(url), expected, f"Failed on {url}")
-            
+
+    def test_duration_parsing(self):
+        self.assertEqual(_iso_duration_to_seconds("PT1H2M3S"), 3723)
+        self.assertEqual(_iso_duration_to_seconds("PT15M30S"), 930)
+        self.assertEqual(_iso_duration_to_seconds("PT45S"), 45)
+        self.assertEqual(_iso_duration_to_seconds("PT2H"), 7200)
+
+    def test_seconds_to_human(self):
+        self.assertEqual(_seconds_to_human(45), "0:45")
+        self.assertEqual(_seconds_to_human(930), "15:30")
+        self.assertEqual(_seconds_to_human(3723), "1:02:03")
+
+    def test_progress_tracking_and_completion(self):
+        # Track 30 minutes of a 60-minute video
+        entry = track_video_progress(
+            url_or_id="https://youtu.be/testvideo12",
+            watched_seconds=1800,
+            total_seconds=3600,
+            title="Python Masterclass Test"
+        )
+        self.assertEqual(entry["percentage"], 50.0)
+        self.assertFalse(entry["completed"])
+
+        # Update to 58 minutes (97.2% -> completed)
+        entry2 = track_video_progress(
+            url_or_id="testvideo12",
+            watched_seconds=3500,
+            total_seconds=3600
+        )
+        self.assertGreaterEqual(entry2["percentage"], 95.0)
+        self.assertTrue(entry2["completed"])
+
+        # Fetch progress
+        fetched = get_video_progress("testvideo12")
+        self.assertTrue(fetched["tracked"])
+        self.assertEqual(fetched["video_id"], "testvideo12")
+
