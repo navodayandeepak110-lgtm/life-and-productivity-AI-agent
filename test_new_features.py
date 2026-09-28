@@ -103,3 +103,13 @@ class TestYouTubeTools(unittest.TestCase):
         ]
         for url, expected in urls:
             self.assertEqual(extract_video_id(url), expected, f"Failed on {url}")
+
+    def test_playlist_id_extraction(self):
+        urls = [
+            ("https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9f5QOfFQW4D", "PLrAXtmErZgOdP_8GztsuKi9f5QOfFQW4D"),
+            ("https://www.youtube.com/watch?v=abc&list=PLrAXtmErZgOdP_8GztsuKi9f5QOfFQW4D", "PLrAXtmErZgOdP_8GztsuKi9f5QOfFQW4D"),
+            ("PLrAXtmErZgOdP_8GztsuKi9f5QOfFQW4D", "PLrAXtmErZgOdP_8GztsuKi9f5QOfFQW4D"),
+        ]
+        for url, expected in urls:
+            self.assertEqual(extract_playlist_id(url), expected, f"Failed on {url}")
+            
