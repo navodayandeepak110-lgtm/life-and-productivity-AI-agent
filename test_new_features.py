@@ -149,3 +149,37 @@ class TestYouTubeTools(unittest.TestCase):
         self.assertTrue(fetched["tracked"])
         self.assertEqual(fetched["video_id"], "testvideo12")
 
+
+class TestAgentToolsRegistration(unittest.TestCase):
+    def test_agent_has_all_new_tools(self):
+        from productivity_agent import ProductivityAgent
+        class MockAgent:
+            get_tools = ProductivityAgent.get_tools
+
+        agent = MockAgent()
+        tools = agent.get_tools()
+        tool_names = {t["name"] for t in tools}
+
+        expected_new_tools = [
+            "web_search",
+            "read_webpage",
+            "confirm_sensitive_action",
+            "read_emails",
+            "read_email_by_id",
+            "search_email",
+            "create_email_draft",
+            "send_email",
+            "get_youtube_video_info",
+            "track_youtube_video",
+            "get_youtube_progress",
+            "list_youtube_tracking",
+            "get_youtube_playlist_progress",
+        ]
+
+        for expected in expected_new_tools:
+            self.assertIn(expected, tool_names, f"Missing tool: {expected}")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
+
