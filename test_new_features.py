@@ -63,3 +63,14 @@ class TestWebTools(unittest.TestCase):
         text = format_search_results(sample)
         self.assertIn("Python Basics", text)
         self.assertIn("https://python.org", text)
+
+    def test_webpage_formatting(self):
+        sample = {
+            "title": "Example Page",
+            "source": "https://example.com",
+            "text": "This is example body text.",
+            "truncated": False
+        }
+        text = format_webpage_result(sample)
+        self.assertIn("Example Page", text)
+        self.assertIn("This is example body text.", text)
