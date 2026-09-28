@@ -91,3 +91,15 @@ class TestEmailTools(unittest.TestCase):
         self.assertEqual(_decode_header("Simple Subject"), "Simple Subject")
         self.assertEqual(_decode_header(""), "")
 
+
+class TestYouTubeTools(unittest.TestCase):
+    def test_video_id_extraction(self):
+        urls = [
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("https://www.youtube.com/shorts/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+            ("dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ]
+        for url, expected in urls:
+            self.assertEqual(extract_video_id(url), expected, f"Failed on {url}")
