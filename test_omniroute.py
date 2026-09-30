@@ -45,3 +45,18 @@ def test_omniroute_connection():
             base_url=base_url,
             api_key=auth_token
         )
+
+        response = client.messages.create(
+            model=model,
+            max_tokens=100,
+            messages=[{
+                "role": "user",
+                "content": "Reply with exactly: OmniRoute connection successful!"
+            }]
+        )
+
+        # Extract response text
+        response_text = ""
+        for content_block in response.content:
+            if hasattr(content_block, "text"):
+                response_text += content_block.text
