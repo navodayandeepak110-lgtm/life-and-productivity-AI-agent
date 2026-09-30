@@ -36,3 +36,12 @@ def test_omniroute_connection():
         print("\n❌ Configuration incomplete!")
         print("Please set ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN in .env file")
         return False
+
+    # Test connection
+    print("\n🔄 Testing connection to OmniRoute...")
+
+    try:
+        client = Anthropic(
+            base_url=base_url,
+            api_key=auth_token
+        )
