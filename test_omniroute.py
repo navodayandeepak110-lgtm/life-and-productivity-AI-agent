@@ -31,3 +31,8 @@ def test_omniroute_connection():
     print(f"\n✓ Base URL: {base_url}")
     print(f"✓ Model: {model}")
     print(f"✓ Auth token: {'*' * 20 if auth_token else 'NOT SET'}")
+
+    if not base_url or not auth_token:
+        print("\n❌ Configuration incomplete!")
+        print("Please set ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN in .env file")
+        return False
