@@ -60,3 +60,25 @@ def test_omniroute_connection():
         for content_block in response.content:
             if hasattr(content_block, "text"):
                 response_text += content_block.text
+
+        print(f"\n✅ SUCCESS!")
+        print(f"Response from {model}:")
+        print(f"  {response_text}")
+        print(f"\n✓ OmniRoute is working correctly!")
+        print(f"✓ Using local endpoint: {base_url}")
+        print(f"✓ Model: {model}")
+
+        return True
+
+    except Exception as e:
+        print(f"\n❌ Connection failed: {e}")
+        print("\nTroubleshooting:")
+        print("1. Make sure OmniRoute is running")
+        print("2. Check that the base URL is correct")
+        print("3. Verify your authentication token")
+        print("4. Ensure the model name matches your OmniRoute configuration")
+        return False
+
+if __name__ == "__main__":
+    success = test_omniroute_connection()
+    exit(0 if success else 1)
