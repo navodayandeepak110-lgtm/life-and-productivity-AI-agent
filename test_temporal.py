@@ -92,3 +92,34 @@ try:
     )
     assert "OVERDUE" in lines[0].upper(), "First task line should show OVERDUE marker"
     print("PASS TEST 4: /tasks sorted by deadline-adjusted priority (overdue floats to top)")
+
+    # ── TEST 5: get_habit_adaptive_recommendations ────────────────
+    coaching = m.get_habit_adaptive_recommendations()
+    assert "ADAPTIVE HABIT COACHING" in coaching.upper()
+    print("PASS TEST 5: get_habit_adaptive_recommendations()")
+    print(f"   Preview: {coaching[:200]}")
+
+    briefing = m.get_morning_briefing()
+    assert any(g in briefing.upper() for g in ["GOOD MORNING", "GOOD AFTERNOON", "GOOD EVENING"]) or "BRIEFING" in briefing.upper()
+    assert "DEADLINE ALERTS" in briefing.upper() or "OVERDUE" in briefing.upper()
+    assert "THIS WEEK'S PLAN" in briefing.upper() or "TODAY'S PLAN" in briefing.upper()
+    assert "TOP PRIORITIES" in briefing.upper()
+    assert "HABITS" in briefing.upper()
+    print("PASS TEST 6: get_morning_briefing() includes deadline alerts + plan")
+
+    # ── TEST 7: get_pruned_context_summary includes deadline tags ─
+    context = m.get_pruned_context_summary("what should I work on today")
+    assert "PENDING TASKS" in context.upper()
+    # Should include OVERDUE marker in context summary
+    assert "OVERDUE" in context.upper() or "DEADLINE ALERTS" in context.upper()
+    print("PASS TEST 7: get_pruned_context_summary() injects deadline alerts into AI context")
+
+finally:
+    if test_dir.exists():
+        shutil.rmtree(test_dir)
+    print("\nCleanup: Temporary test directory removed.")
+
+print()
+print("=" * 60)
+print("ALL TEMPORAL INTELLIGENCE TESTS PASSED!")
+print("=" * 60)
