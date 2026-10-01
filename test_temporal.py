@@ -74,3 +74,21 @@ try:
     )
     print(f"PASS TEST 2: _get_effective_priority()  "
           f"low+tomorrow={p_low_tomorrow}  high+no_dl={p_high_no_dl}  overdue={p_overdue_any}")
+
+    # ── TEST 3: get_deadline_alerts ───────────────────────────────
+    alerts = m.get_deadline_alerts()
+    assert "OVERDUE"   in alerts.upper(), "Should flag overdue task"
+    assert "CRITICAL"  in alerts.upper(), "Should flag critical (<=2d) task"
+    assert "WARNING"   in alerts.upper(), "Should flag warning (<=7d) task"
+    print("PASS TEST 3: get_deadline_alerts()")
+    print(f"   Preview:\n{alerts[:300]}")
+
+    # ── TEST 4: /tasks sorts overdue task to top ──────────────────
+    formatted = m.get_tasks_formatted("pending")
+    lines = [l for l in formatted.split("\n") if "ID #" in l]
+    # First task line should be the OVERDUE one
+    assert str(t2["id"]) in lines[0], (
+        f"OVERDUE task #{t2['id']} should be first in /tasks, got: {lines[0]}"
+    )
+    assert "OVERDUE" in lines[0].upper(), "First task line should show OVERDUE marker"
+    print("PASS TEST 4: /tasks sorted by deadline-adjusted priority (overdue floats to top)")
