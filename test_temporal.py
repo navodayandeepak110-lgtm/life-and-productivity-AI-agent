@@ -47,3 +47,10 @@ try:
     t4 = m.add_task("Test LOW no deadline",               priority="low",    deadline=None)
 
     print(f"\nAdded test tasks: #{t1['id']}, #{t2['id']}, #{t3['id']}, #{t4['id']}")
+
+    # ── TEST 1: _days_until ───────────────────────────────────────
+    assert m._days_until(d_tomorrow) == 1,  "_days_until(tomorrow) should be 1"
+    assert m._days_until(d_overdue)  == -2, "_days_until(2 days ago) should be -2"
+    assert m._days_until(d_today)    == 0,  "_days_until(today) should be 0"
+    assert m._days_until(None)       is None
+    print("PASS TEST 1: _days_until()")
