@@ -54,3 +54,23 @@ try:
     assert m._days_until(d_today)    == 0,  "_days_until(today) should be 0"
     assert m._days_until(None)       is None
     print("PASS TEST 1: _days_until()")
+
+    # ── TEST 2: _get_effective_priority ──────────────────────────
+    p_low_tomorrow   = m._get_effective_priority({"priority": "low",    "deadline": d_tomorrow})
+    p_high_no_dl     = m._get_effective_priority({"priority": "high",   "deadline": None})
+    p_overdue_any    = m._get_effective_priority({"priority": "low",    "deadline": d_overdue})
+    p_medium_in5     = m._get_effective_priority({"priority": "medium", "deadline": d_in_5})
+    p_medium_in6     = m._get_effective_priority({"priority": "medium", "deadline": d_in_6})
+
+    # low+tomorrow (1+3=4) > high+no_deadline (3)
+    assert p_low_tomorrow > p_high_no_dl, (
+        f"LOW+tomorrow({p_low_tomorrow}) should beat HIGH+no_deadline({p_high_no_dl})"
+    )
+    # overdue is always max (10)
+    assert p_overdue_any == 10, f"Overdue should be 10, got {p_overdue_any}"
+    # in-5-days gets +2 boost, in-6-days gets +1 boost
+    assert p_medium_in5 > p_medium_in6, (
+        f"medium+5d({p_medium_in5}) should beat medium+6d({p_medium_in6})"
+    )
+    print(f"PASS TEST 2: _get_effective_priority()  "
+          f"low+tomorrow={p_low_tomorrow}  high+no_dl={p_high_no_dl}  overdue={p_overdue_any}")
